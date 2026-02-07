@@ -31,6 +31,12 @@ const weatherCache = new Map<string, { data: WeatherInfo; expires: number }>()
  * @returns WeatherInfo with temp, condition, and outdoor-friendliness
  */
 export async function getWeather(location: LatLng): Promise<WeatherInfo | null> {
+  // --- Check if API key is configured ---
+  if (!config.openweather.apiKey || config.openweather.apiKey === 'xxx...') {
+    console.warn('OpenWeather API key not configured, skipping weather fetch')
+    return null
+  }
+
   // --- Check cache (round to 2 decimal places ~1km grid) ---
   const cacheKey = `${location.lat.toFixed(2)},${location.lng.toFixed(2)}`
   const cached = weatherCache.get(cacheKey)
