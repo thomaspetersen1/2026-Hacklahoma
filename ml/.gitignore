@@ -1,0 +1,78 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Virtual Environments
+venv/
+env/
+.venv/
+ENV/
+
+# ML Models
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.model
+*.weights
+*.pt
+*.pth
+*.onnx
+*.joblib
+models/trained/*
+!models/trained/.gitkeep
+
+# Data
+data/
+datasets/
+*.csv
+*.tsv
+*.json
+*.parquet
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ML Tracking
+mlruns/
+wandb/
+runs/
+logs/
+*.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment
+.env
+.env.*
+*.env
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flask
+instance/
+*.pyc
+flask_session/
+
+# Cache
+.cache/
+*.cache
