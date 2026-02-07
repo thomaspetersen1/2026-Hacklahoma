@@ -1,20 +1,50 @@
+/**
+ * ============================================================
+ * index.ts — Sorcerer Troop API Server
+ * ============================================================
+ *
+ * Express server entry point. Wires up:
+ *   - CORS (allows client to call us)
+ *   - JSON body parsing
+ *   - Route handlers:
+ *       GET  /api/health   → health check
+ *       POST /api/suggest  → the core product
+ *       POST /api/feedback → user feedback collection
+ *
+ * Start with: npm run dev
+ */
+
 import express from 'express'
 import cors from 'cors'
-import dotenv from 'dotenv'
+import { config } from './config'
 
-dotenv.config()
+// Route handlers
+import healthRouter from './routes/health'
+import suggestRouter from './routes/suggest'
+import feedbackRouter from './routes/feedback'
 
 const app = express()
-const PORT = process.env.PORT || 3001
 
-app.use(cors())
+// --- Middleware ---
+app.use(cors({ origin: config.corsOrigin }))
 app.use(express.json())
 
-// Routes
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok' })
-})
+// --- Routes ---
+app.use('/api/health', healthRouter)
+app.use('/api/suggest', suggestRouter)
+app.use('/api/feedback', feedbackRouter)
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
+// --- Start server ---
+app.listen(config.port, () => {
+  console.log(`
+  ⚡ Sorcerer Troop API running on port ${config.port}
+
+  Endpoints:
+    GET  /api/health    → health check
+    POST /api/suggest   → get suggestions
+    POST /api/feedback  → submit feedback
+
+  Test it:
+    curl http://localhost:${config.port}/api/health
+  `)
 })
