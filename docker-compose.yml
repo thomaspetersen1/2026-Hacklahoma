@@ -1,18 +1,18 @@
 services:
-  client:
-    build: ./client
+  web:
+    build: ./web
     ports:
-      - "5173:5173"
+      - "3000:3000"
     environment:
-      - VITE_API_URL=http://localhost:3001
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
     volumes:
-      - ./client:/app
+      - ./web:/app
       - /app/node_modules
     develop:
       watch:
         - action: sync
-          path: ./client/src
-          target: /app/src
+          path: ./web/app
+          target: /app/app
           ignore:
             - node_modules/
 

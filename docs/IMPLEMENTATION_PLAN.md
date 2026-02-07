@@ -4,13 +4,27 @@ Rough roadmap with TODOs for hackathon build.
 
 ---
 
+## Architecture (locked in)
+
+Three services, one repo:
+
+```
+/web     → Next.js (frontend only, no API routes)
+/server  → Express + TypeScript (all backend logic + API endpoints)
+/ml      → Python + FastAPI (Tommy's preference scoring model)
+```
+
+Web calls Server. Server calls Google APIs + ML service.
+No backend logic in /web. All API keys stay in /server.
+
+---
+
 ## Phase 1: Project Setup & Infrastructure
 
-### [ ] 1.1 Initialize Services
-- [ ] Create `/client` with Vite + React + TypeScript
-- [ ] Create `/server` with Express + TypeScript
-- [ ] Create `/ml` with Python + FastAPI
-- [ ] Install all dependencies per `PROJECT_SETUP.md`
+### [x] 1.1 Initialize Services
+- [x] `/web` — Next.js frontend (already built: landing page, "I'm Free Now" flow, SuggestionCard)
+- [x] `/server` — Express + TypeScript (scaffolded: types, services, routes, config)
+- [ ] `/ml` — Python + FastAPI (Tommy setting up)
 
 ### [ ] 1.2 Docker Setup
 - [ ] Write Dockerfile for each service
