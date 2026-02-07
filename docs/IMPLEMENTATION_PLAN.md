@@ -1,6 +1,6 @@
 # Sorcerer Troop — Implementation Plan
 
-Rough roadmap with TODOs for hackathon build.
+Hackathon build roadmap. Updated to reflect current state.
 
 ---
 
@@ -9,7 +9,7 @@ Rough roadmap with TODOs for hackathon build.
 Three services, one repo:
 
 ```
-/web     → Next.js (frontend only, no API routes)
+/web     → Next.js (frontend — teammate built in Cursor)
 /server  → Express + TypeScript (all backend logic + API endpoints)
 /ml      → Python + FastAPI (Tommy's preference scoring model)
 ```
@@ -19,307 +19,159 @@ No backend logic in /web. All API keys stay in /server.
 
 ---
 
-## Phase 1: Project Setup & Infrastructure
+## Current State
 
-### [x] 1.1 Initialize Services
-- [x] `/web` — Next.js frontend (already built: landing page, "I'm Free Now" flow, SuggestionCard)
-- [x] `/server` — Express + TypeScript (scaffolded: types, services, routes, config)
-- [ ] `/ml` — Python + FastAPI (Tommy setting up)
+### What's Done
+- [x] `/web` — Next.js frontend (landing page, "I'm Free Now" flow, SuggestionCard, mock data)
+- [x] `/server` — Express + TypeScript fully scaffolded:
+  - [x] `types/index.ts` — full type system
+  - [x] `services/vibes.ts` — vibe → place type mapping + time-of-day boosts
+  - [x] `services/fit.ts` — dwell estimates, time budgets, search radius
+  - [x] `services/scoring.ts` — local heuristic + ML fallback + diversity + reason codes
+  - [x] `services/places.ts` — Google Places searchNearby + caching + normalization
+  - [x] `services/routes.ts` — Google Routes API wrapper + caching (no API key yet)
+  - [x] `services/weather.ts` — OpenWeather wrapper + caching (no API key yet)
+  - [x] `routes/suggest.ts` — full 10-step pipeline
+  - [x] `routes/feedback.ts` — in-memory store
+  - [x] `routes/health.ts` — service status
+  - [x] `config/index.ts` — env vars, graceful degradation
+- [x] `.env` with Google Maps API key set
+- [ ] `/ml` — scaffold only (requirements.txt + venv)
 
-### [ ] 1.2 Docker Setup
-- [ ] Write Dockerfile for each service
-- [ ] Test `docker compose up`
-- [ ] Verify hot reload with `docker compose watch`
+### What's NOT Done
+- [ ] Server has never been started / compiled
+- [ ] `/web` still calls its own inline API routes, not `/server`
+- [ ] No database (feedback is in-memory only)
+- [ ] ML service has no scoring endpoint
+- [ ] No Routes API key (falls back to distance heuristic)
+- [ ] No OpenWeather key (skips weather gracefully)
 
-### [ ] 1.3 Environment Variables
-- [ ] Get Supabase keys (project URL, anon key, service role key)
-- [ ] Get Google Cloud API key (enable Places, Routes, Maps JS APIs)
+---
+
+## Phase 1: Boot the Server (NOW)
+
+### [ ] 1.1 Compile and start `/server`
+- [ ] Run `npm run dev` in `/server`
+- [ ] Fix any TypeScript errors
+- [ ] Confirm `GET /api/health` returns OK
+
+### [ ] 1.2 Test the core pipeline with real data
+- [ ] `POST /api/suggest` with real lat/lng + Google Places API key
+- [ ] Verify: places come back, scoring works, time-fit filters correctly
+- [ ] Verify: graceful fallback when Routes/Weather APIs unavailable
+
+### [ ] 1.3 Add mock fallback in `/server`
+- [ ] If Google Places API fails or key is missing, return mock suggestions
+- [ ] Demo should never show an error screen
+
+---
+
+## Phase 2: Connect Frontend ↔ Server
+
+### [ ] 2.1 Wire `/web` to call `/server`
+- [ ] `/web` calls `http://localhost:3001/api/suggest` instead of its own API routes
+- [ ] Configure CORS / proxy so requests work in dev
+- [ ] Test end-to-end: UI → server → Google → cards
+
+### [ ] 2.2 Align types
+- [ ] Server's `SuggestResponse` shape matches what `/web` components expect
+- [ ] Fix any mismatches between server types and frontend types
+
+---
+
+## Phase 3: Feedback + Instrumentation
+
+### [ ] 3.1 Feedback loop
+- [ ] `/web` sends like/dislike/save to `POST /api/feedback`
+- [ ] Server stores feedback (in-memory for now)
+- [ ] Log: what was suggested, what was clicked, what was dismissed
+
+### [ ] 3.2 Outcome instrumentation
+- [ ] Track: window length, vibe, travel mode, time-of-day, place IDs returned
+- [ ] This is the data flywheel — what people do with X minutes
+
+---
+
+## Phase 4: ML Service (Tommy)
+
+### [ ] 4.1 FastAPI setup
+- [ ] Basic app with `/health` and `POST /score` endpoints
+- [ ] `/score` takes candidates + vibes + windowMinutes, returns scores
+
+### [ ] 4.2 Preference model
+- [ ] Simple weight adjustment based on feedback history
+- [ ] Server calls ML service, falls back to local heuristic if down
+
+---
+
+## Phase 5: Enhancements (as time allows)
+
+### [ ] 5.1 Weather integration
 - [ ] Get OpenWeather API key
-- [ ] Create `.env` files for server and client
-- [ ] Add `.env` to `.gitignore`
+- [ ] Outdoor boost/filter based on conditions
+- [ ] Show weather context on cards ("72° and sunny")
 
----
+### [ ] 5.2 Routes API
+- [ ] Enable Routes API in Google Cloud Console
+- [ ] Real travel times replace distance heuristic
 
-## Phase 2: Backend Core (Server)
+### [ ] 5.3 Safety mode
+- [ ] Night filter: avoid isolated parks/trails after dark
+- [ ] Prefer well-rated, public, open-now places at night
 
-### [ ] 2.1 Google Places Integration
-- [ ] `/server/src/services/places.ts` — wrapper for Places API `searchNearby`
-- [ ] Test: fetch cafes near a location
-- [ ] Handle errors, rate limits
-
-### [ ] 2.2 Google Routes Integration
-- [ ] `/server/src/services/routes.ts` — wrapper for Routes API
-- [ ] Calculate walking/driving/transit time between two points
-- [ ] Fallback: distance heuristic if API quota is tight
-
-### [ ] 2.3 Vibe Mapping
-- [ ] `/server/src/services/vibes.ts` — map vibe tags to Google place types
-  - `chill` → `cafe, book_store, library`
-  - `social` → `bar, restaurant, bowling_alley`
-  - `active` → `gym, park, sports_complex`
-  - `creative` → `art_gallery, museum, art_supply_store`
-  - `outdoors` → `park, nature_reserve, viewpoint`
-
-### [ ] 2.4 Time Fit Calculation
-- [ ] `/server/src/services/fit.ts` — calculate if a place fits in the time window
-  - Travel time (to place)
-  - Dwell time estimate (by place type — lookup table)
-  - Travel time (back)
-  - Buffer (5 min)
-  - Filter: `total_time <= windowMinutes`
-
-### [ ] 2.5 Scoring Engine
-- [ ] `/server/src/services/scoring.ts` — score and rank places
-  - Vibe match (30%)
-  - Time efficiency (25%)
-  - Distance (20%)
-  - Novelty (15%)
-  - Rating (10%)
-- [ ] Return top 5, sorted by score
-
-### [ ] 2.6 Suggest Endpoint
-- [ ] `/server/src/routes/suggest.ts` — `POST /api/suggest`
-  - Request: `{ windowMinutes, origin, travelMode, vibes }`
-  - Response: ranked suggestions with time breakdown
-- [ ] Wire into Express app
-- [ ] Test with Postman/Thunder Client
-
-### [ ] 2.7 Weather Integration
-- [ ] `/server/src/services/weather.ts` — OpenWeather API wrapper
-- [ ] Boost outdoor suggestions if sunny/warm
-- [ ] Filter outdoor suggestions if raining/cold
-- [ ] Add weather context to suggestion cards
-
-### [ ] 2.8 Feedback Endpoint
-- [ ] `/server/src/routes/feedback.ts` — `POST /api/feedback`
-- [ ] Save like/dislike to database
-- [ ] Update user preference weights (future: call ML service)
-
----
-
-## Phase 3: Frontend Core (Client)
-
-### [ ] 3.1 Project Setup
-- [ ] Vite + React + TypeScript scaffold
-- [ ] Tailwind CSS setup
-- [ ] shadcn/ui init (optional but nice)
-- [ ] React Router setup
-
-### [ ] 3.2 Home Screen
-- [ ] Big "I'm Free Now" button
-- [ ] Clean, bold design
-
-### [ ] 3.3 Time + Vibe Selector
-- [ ] Time picker: 15/30/45/60/90 min + custom input
-- [ ] Vibe selector: multi-select tiles (Chill, Social, Active, Creative, Outdoors)
-- [ ] Transport mode: Walk / Drive / Transit
-- [ ] "Get Suggestions" button
-
-### [ ] 3.4 Suggestion Cards
-- [ ] Card component: photo, name, category, travel time, "fits in X min"
-- [ ] Scrollable list (3-5 cards)
-- [ ] Tap card → detail view
-
-### [ ] 3.5 Place Detail View
-- [ ] Show full photo, address, open hours
-- [ ] Time breakdown: "6 min walk + 20 min there + 6 min back = 32 min"
-- [ ] Why it matched: "Chill vibe, fits perfectly"
-- [ ] "Navigate" button → open Google Maps with directions
-
-### [ ] 3.6 Loading States
-- [ ] Spinner while fetching suggestions
-- [ ] Skeleton cards before results load
-
-### [ ] 3.7 Error States
-- [ ] No suggestions found → show helpful message
-- [ ] Location permission denied → prompt user
-- [ ] API error → retry button
-
----
-
-## Phase 4: ML Service (Python)
-
-### [ ] 4.1 FastAPI Setup
-- [ ] Basic FastAPI app with `/health` endpoint
-- [ ] Test locally: `uvicorn main:app --reload`
-
-### [ ] 4.2 Preference Model (Simple)
-- [ ] `/ml/models/preference.py` — predict user preferences based on feedback
-- [ ] For MVP: just adjust weights based on like/dislike
-- [ ] Future: train a real model on activity history
-
-### [ ] 4.3 Scoring Enhancement (Optional)
-- [ ] `/ml/models/scoring.py` — ML-enhanced scoring
-- [ ] Use user history to personalize ranking
-- [ ] Server calls this endpoint for logged-in users
-
----
-
-## Phase 5: Database (Supabase)
-
-### [ ] 5.1 Schema Design
-- [ ] `users` table (id, email, created_at)
-- [ ] `preferences` table (user_id, category, weight)
-- [ ] `activity_history` table (user_id, place_id, gap_duration, feedback, timestamp)
-- [ ] `saved_places` table (user_id, place_id, note)
-
-### [ ] 5.2 Supabase Client Setup
-- [ ] `/server/src/lib/supabase.ts` — initialize client
-- [ ] Test connection
-
-### [ ] 5.3 Auth (Optional for MVP)
-- [ ] Google OAuth setup in Supabase
-- [ ] Auth middleware in Express
-- [ ] Protected routes for feedback, saved places
+### [ ] 5.4 Database (Supabase)
+- [ ] Schema: users, preferences, activity_history, saved_places
+- [ ] Persist feedback across sessions
+- [ ] Optional: Google OAuth for accounts
 
 ---
 
 ## Phase 6: Polish & Demo Prep
 
-### [ ] 6.1 Safety Mode
-- [ ] Night toggle: filter isolated parks/trails after dark
-- [ ] Prefer well-rated, public places at night
-- [ ] Safety badge on cards
+### [ ] 6.1 Onboarding flow
+- [ ] Welcome screen, location permission, quick preferences
 
-### [ ] 6.2 Stats Screen (Optional)
-- [ ] "You've reclaimed 3.5 hours this week"
-- [ ] "6 new places visited"
-- [ ] "4 errands knocked out"
-
-### [ ] 6.3 Onboarding Flow
-- [ ] Welcome screen: "Turn dead time into micro-adventures"
-- [ ] Location permission request
-- [ ] Quick preference picker (vibes, transport mode)
-- [ ] Skip to first suggestions immediately
-
-### [ ] 6.4 Mobile Responsive
-- [ ] Test on mobile viewport
-- [ ] Touch-friendly buttons, tap targets
-- [ ] Bottom sheet for suggestion cards (mobile pattern)
-
-### [ ] 6.5 Demo Script
-- [ ] Write 60-second pitch
-- [ ] Test the full loop end-to-end
-- [ ] Prepare backup data if APIs fail during demo
-- [ ] Screenshot key screens for slides
-
-### [ ] 6.6 Edge Cases
+### [ ] 6.2 Edge cases
 - [ ] No suggestions found → helpful message
-- [ ] Sparse area (nothing nearby) → expand radius
-- [ ] All places filtered out (nothing fits) → suggest shorter window
-- [ ] API rate limit hit → graceful fallback
+- [ ] Sparse area → expand radius
+- [ ] API rate limit → graceful fallback with mock data
+
+### [ ] 6.3 Demo script
+- [ ] 60-second pitch rehearsed
+- [ ] Backup hardcoded data if APIs fail during demo
+- [ ] Test full loop end-to-end on real location
 
 ---
 
 ## Phase 7: Deployment
 
-### [ ] 7.1 Client Deploy
-- [ ] Vercel or Netlify
-- [ ] Set env vars
-- [ ] Test production build
-
-### [ ] 7.2 Server Deploy
-- [ ] Railway, Render, or Fly.io
-- [ ] Set env vars
-- [ ] Test endpoints
-
-### [ ] 7.3 ML Deploy (Optional)
-- [ ] Modal, Fly.io, or keep local for MVP
-
----
-
-## Phase 8: Testing
-
-### [ ] 8.1 Manual Testing
-- [ ] Test "I'm Free Now" flow end-to-end
-- [ ] Test each vibe filter
-- [ ] Test each transport mode
-- [ ] Test time windows (15 min, 90 min)
-- [ ] Test feedback loop
-
-### [ ] 8.2 API Testing
-- [ ] Test `/api/suggest` with different inputs
-- [ ] Test error handling
-- [ ] Test rate limiting
-
----
-
-## TODO Priority (What to Build First)
-
-**Critical Path (Must Have for Demo):**
-1. Server: `/api/suggest` endpoint (Places + Routes + Scoring)
-2. Client: "I'm Free Now" button → time/vibe selector → suggestion cards
-3. Client: Suggestion card → detail view → Navigate button
-4. Weather integration (nice visual boost)
-5. Demo prep (script, backup data)
-
-**Nice to Have (If Time Allows):**
-6. Stats screen ("3.5 hrs reclaimed")
-7. Safety mode toggle
-8. Onboarding flow
-9. Feedback endpoint + preference updates
-10. ML service (basic preference model)
-
-**Post-Hackathon:**
-11. Calendar sync + gap detection
-12. Errands layer
-13. Group scheduling
-14. Business dashboard
-
----
-
-## Team Split (Suggested)
-
-| Person | Focus |
-|---|---|
-| Backend Lead | Server setup, `/api/suggest`, Google APIs, scoring |
-| Frontend Lead | Client setup, UI components, suggestion cards, detail view |
-| Full-Stack | Supabase, auth, database schema, feedback endpoint |
-| ML/Data | Python service, preference model, scoring enhancements |
-
----
-
-## Blockers to Resolve Early
-
-- [ ] Do we need user accounts for MVP or can we ship accountless?
-- [ ] Do we show a map view or just cards?
-- [ ] Do we deploy all 3 services or just client + server for demo?
-- [ ] What's our backup plan if Google APIs fail during demo?
-- [ ] Which city/location do we demo? (seed data for that area?)
+### [ ] 7.1 Frontend → Vercel
+### [ ] 7.2 Server → Railway / Render / Fly.io
+### [ ] 7.3 ML → Modal / Fly.io (optional, can run local for demo)
 
 ---
 
 ## Success Criteria
 
 **Demo works if:**
-- ✅ User taps "I'm Free Now"
-- ✅ Selects 45 min + Chill vibe
-- ✅ Gets 3-5 relevant suggestions in <2 seconds
-- ✅ Every suggestion actually fits in 45 minutes
-- ✅ Tap a card → see details → tap Navigate → Google Maps opens
+- User taps "I'm Free Now"
+- Selects 45 min + Chill vibe
+- Gets 3-5 relevant suggestions in <2 seconds
+- Every suggestion actually fits in 45 minutes
+- Tap a card → see details → tap Navigate → Google Maps opens
 
 **Judges are impressed if:**
-- ✅ Live location works (not hardcoded)
-- ✅ Vibe filtering is smart (chill ≠ gym)
-- ✅ Weather context shows up ("72° and sunny")
-- ✅ UI is clean and fast
-- ✅ Demo runs smoothly without bugs
-
----
-
-## Git Workflow
-
-- [ ] Create feature branches for each major component
-- [ ] PR to `main` when ready
-- [ ] Keep `main` deployable at all times
-- [ ] Tag releases: `v0.1-mvp`, `v0.2-demo`
+- Live location works (not hardcoded)
+- Vibe filtering is smart (chill ≠ gym)
+- Weather context shows up
+- UI is clean and fast
+- "The shovel" pitch lands: routing engine + outcome dataset
 
 ---
 
 ## Notes
 
-- Keep it simple. Hackathon is about proving the concept, not production-ready code.
-- Prioritize the demo loop. Everything else is secondary.
-- Test on real locations early (your city, campus area).
-- Have backup hardcoded data in case APIs fail during demo.
-- Document what you build as you go (future you will thank you).
+- Keep it simple. Hackathon = prove the concept.
+- The app is the reference client. The routing engine is the product.
+- Have backup data in case APIs fail during demo.
+- Test on real locations early.

@@ -15,14 +15,17 @@ const router = Router()
 const startedAt = new Date()
 
 router.get('/', (_req: Request, res: Response) => {
+  const isValidKey = (key: string) => key && key !== '' && !key.startsWith('AIzaxxx') && !key.startsWith('xxx') && !key.startsWith('eyJxxx')
+  const isValidUrl = (url: string) => url && url !== '' && !url.includes('xxx.supabase.co')
+
   res.json({
     status: 'ok',
     uptime: Math.floor((Date.now() - startedAt.getTime()) / 1000),
     startedAt: startedAt.toISOString(),
     services: {
-      google: config.google.apiKey !== 'YOUR_KEY_HERE',
-      openweather: config.openweather.apiKey !== 'YOUR_KEY_HERE',
-      supabase: config.supabase.url !== '' && config.supabase.url !== 'YOUR_URL_HERE',
+      google: isValidKey(config.google.apiKey),
+      openweather: isValidKey(config.openweather.apiKey),
+      supabase: isValidUrl(config.supabase.url),
       ml: config.ml.url,
     },
   })
