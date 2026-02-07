@@ -173,11 +173,14 @@ export interface SuggestRequest {
   /** Where the user is right now */
   origin: LatLng
 
-  /** How they're getting around */
-  travelMode: TravelMode
+  /** How they're getting around (accepts "walking" or "WALK" format) */
+  travelMode: TravelMode | string
 
   /** What vibes they're feeling (optional — omit for "surprise me") */
-  vibes?: Vibe[]
+  vibes?: Vibe[] | string[]
+
+  /** Single vibe from frontend (normalized to vibes array on server) */
+  vibe?: string
 
   /** Max minutes they're willing to travel one-way (optional, default from travelMode) */
   maxTravelMinutes?: number

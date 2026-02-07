@@ -53,7 +53,18 @@ router.post('/', async (req: Request, res: Response) => {
       return
     }
 
-    const { windowMinutes, origin, travelMode, vibes = [] } = body
+    // --- Normalize inputs (accept frontend format OR backend format) ---
+    const travelModeMap: Record<string, string> = {
+      WALK: 'walking', DRIVE: 'driving', TRANSIT: 'transit',
+      walking: 'walking', driving: 'driving', transit: 'transit',
+    }
+    const travelMode = (travelModeMap[body.travelMode] || 'walking') as import('../types').TravelMode
+
+    // Accept "vibe" (single string) or "vibes" (array), normalize to lowercase array
+    const rawVibes: string[] = body.vibes || (body.vibe ? [body.vibe] : [])
+    const vibes = rawVibes.map((v: string) => v.toLowerCase())
+
+    const { windowMinutes, origin } = body
     const maxTravelMinutes = body.maxTravelMinutes || (travelMode === 'walking' ? 10 : 15)
 
     // --- 2. Get weather (async, don't block on failure) ---
