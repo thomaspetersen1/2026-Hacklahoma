@@ -676,20 +676,27 @@ Free tier: 1,000 calls/day
 
 | Phase | What | Est. time | Owner |
 |---|---|---|---|
-| 1 | Project setup: Next.js + Tailwind + shadcn/ui + Supabase + Vercel | 1 hr | — |
-| 2 | Google OAuth + API keys + env config | 1 hr | — |
-| 3 | "I'm Free Now" flow UI (time selector + vibe selector) | 2 hrs | — |
-| 4 | `/api/suggest` endpoint: Places API + fit filtering | 2 hrs | — |
-| 5 | Routes API integration (real travel times) | 1.5 hrs | — |
-| 6 | Scoring engine (`/lib/scoring.ts`) | 1.5 hrs | — |
-| 7 | Suggestion cards UI + place detail + navigate handoff | 2 hrs | — |
-| 8 | Weather integration + context on cards | 1 hr | — |
-| 9 | Feedback loop (like/dislike → update preferences) | 1 hr | — |
-| 10 | Safety mode (night filter) | 1 hr | — |
-| 11 | Onboarding flow | 1.5 hrs | — |
-| 12 | Polish, demo prep, edge cases | 1.5 hrs | — |
+Order this to get the end-to-end demo loop working early, then progressively replace mocks with real data.
 
-**Total: ~16 hrs.** Split frontend/backend across team members to parallelize.
+| Phase | What | Est. time | Owner |
+|---|---|---|---|
+| 1 | App scaffold: Next.js + Tailwind + routing (`/` + `/free`) | 0.5 hr | — |
+| 2 | Core UI: I'm Free Now (window + vibe + mode) | 1.5 hr | — |
+| 3 | API contract: `POST /api/suggest` returning mock suggestions + reason codes + time budgets | 1 hr | — |
+| 4 | Suggestion cards + navigate handoff (full demo loop) | 1.5 hr | — |
+| 5 | Places adapter: Google Places integration behind a provider interface + normalization | 2 hr | — |
+| 6 | Fit filter + simple scoring + diversity constraints | 1.5 hr | — |
+| 7 | Safety mode (night filter rules + conservative defaults) | 1 hr | — |
+| 8 | Feedback + instrumentation (click/save/dismiss; local-first) | 1 hr | — |
+| 9 | Onboarding (30–60 seconds; preferences + first run) | 1 hr | — |
+| 10 | Polish + edge cases + demo script | 1.5 hr | — |
+
+Stretch goals (only if time remains):
+- Routes API (better travel times) and/or weather boosts
+- Auth + DB (Supabase) for persistence across devices
+- Curated starter pack for the demo city
+
+**Total (core): ~12 hrs.** Split frontend/backend across team members to parallelize.
 
 ---
 
