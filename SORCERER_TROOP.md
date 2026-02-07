@@ -27,6 +27,8 @@ People do not need "the best place in the city." They need the **best next actio
 
 Sorcerer Troop wins by making "do something" the default and "scroll" the exception.
 
+**Important principle (anti-wrapper):** map/place data providers are inputs, not the product. We treat Places/Maps APIs as replaceable supply and build our own durable layer on top: a third-place taxonomy, time-fit heuristics, safety rules, and (eventually) an outcome dataset of what people actually choose with 15-90 minutes.
+
 ---
 
 ## 3) Who it's for (persona)
@@ -46,6 +48,7 @@ Anti-persona (for MVP):
 - An **action routing platform**: given a time window and a location, return a ranked list of options that fit.
 - A **utility**: designed to be used briefly, then hand off to navigation.
 - A **lightweight discovery layer**: quick decisions, not endless browsing.
+- A **provider-agnostic routing layer**: Google/Apple/etc are data sources we can swap; the routing logic and “third place graph” are what we own.
 
 ### We are not
 - A "chat with your calendar" assistant.
@@ -140,17 +143,27 @@ Even in MVP:
    - max travel (5/10/15 minutes)
 4) First suggestions immediately (no empty state).
 
-### 8.2 Core loop: I'm Free Now
-1) Tap "I'm Free Now"
-2) Choose duration (or "until X:YY" if calendar is later implemented)
-3) Optional: vibe
-4) Results screen:
-   - 3-5 suggestion cards
-   - each card: title, category, travel minutes, "fits in 45 min", open-now, price level (if available), photo
-5) Tap a card -> details:
-   - why it matched ("chill + 7 min walk + open now")
-   - Navigate button (handoff to Maps)
-   - Save (optional)
+### 8.2 Core loop: I'm Free Now (THE DEMO FLOW)
+1) Open the app → big "I'm Free Now" button
+2) Select time: "45 minutes"
+3) Select vibe (optional): tap "Chill"
+4) Hit go → instant results (3-5 cards)
+5) Show the cards:
+   - "Blue Bottle Coffee — 6 min walk — fits in 45 min"
+   - "Riverside Park — 8 min walk — sunny today"
+   - "Left Bank Books — 5 min drive — open now"
+6) Tap one → detail view shows:
+   - Why it matched: "Chill vibe, 6 min walk, fits perfectly in your window"
+   - Travel + dwell breakdown: "6 min walk + 20 min there + 6 min back = 32 min"
+   - Photo, address, "Navigate" button
+7) Tap Navigate → hands off to Google Maps
+
+**Card format:**
+- Title, category, travel time
+- "Fits in 45 min" badge
+- Open now status
+- Price level (if available)
+- Photo
 
 ### 8.3 Feedback loop (keep it minimal)
 After returning (or manually):
@@ -203,6 +216,68 @@ This becomes valuable to:
 - city/neighborhood planners (macro signals)
 - partner apps (maps, calendars, travel, campus apps) via API
 
+### 10.3 The owned layer: the Third Place Graph
+To avoid being “just a Places wrapper,” we create an internal representation of third places that is richer than raw provider data:
+- vibe taxonomy (chill/social/creative/outdoors/etc)
+- micro-duration suitability (15/30/45/60 min)
+- “new-to-you” and repeat-rate signals
+- safety heuristics (night mode, public-ness, open-late bias)
+- lightweight curation packs (starter sets for neighborhoods or cohorts)
+
+### 10.4 Provider-agnostic adapters (anti “Google kills you”)
+Design the system so any places source can plug in:
+- internal `place_ref` (our stable ID) + provider IDs as attributes
+- adapters for Google Places now; later options: Foursquare/OSM/custom venue partners
+- caching + normalization so switching providers is a backend change, not a product rewrite
+
+### 10.5 Outcome dataset (what compounds)
+The durable dataset is not “places,” it’s behavior:
+- what we suggested (inputs: window, vibe, mode)
+- what they clicked, saved, and repeated
+- what they skipped (negative preference signal)
+
+Over time, we learn “what works in 45 minutes” for a persona and area. That’s the compounding asset.
+
+### 10.6 Distribution wedges (avoid pure consumer inertia)
+If behavior change is the risk, distribution is the mitigation:
+- “New city mode” partnerships (employers onboarding, relocation packages)
+- apartments/coworking/community orgs (welcome flows with starter packs)
+- campus-adjacent launches (where third places are dense and shared)
+
+### 10.7 Shovel checklist (what we gather/build/guardrail)
+This is the “sell the shovels” work: the durable primitive + the compounding dataset.
+
+#### A) Build the primitive (routing engine you can embed)
+- **Single contract:** `window + origin + mode + vibe + constraints -> ranked actions[] + reason codes + time budget breakdown`.
+- **Provider adapters:** `PlacesProvider` interface (Google now) + normalized internal shape so we can swap data sources later.
+- **Normalization:** canonicalize place fields (name, lat/lng, hours/openNow, types, price, rating) and attach our own metadata.
+- **Time-fit core:** dwell-time priors by category + buffer policy + hard filter that never suggests something that can’t fit.
+- **Explainability:** reason codes (“chill vibe”, “7 min walk”, “fits in 45 min”) so users trust it and we can debug it.
+- **Caching + limits:** cache provider responses per area/time bucket; cap travel-time computations; degrade gracefully to heuristics.
+
+#### B) Gather what makes this defensible (the Third Place Graph)
+Own a layer that is not in Google’s raw data:
+- **Vibe taxonomy:** chill/social/creative/outdoors/active/late-night (and how each maps to categories + times of day).
+- **Micro-duration suitability:** which place-types are good for 15/30/45/60/90 minutes.
+- **Starter packs:** curated “first week in this city” sets (neighborhood packs; after-work packs; rainy-day packs).
+- **Safety heuristics:** night mode rules, public-ness signals, “open late” bias, avoid isolated options in late hours.
+- **Novelty + diversity controls:** avoid same-category spam; rotate categories; new-to-you boost.
+
+#### C) Gather the compounding dataset (outcomes, not places)
+Instrument the loop so you learn what works:
+- **Inputs:** window length, time-of-day, day-of-week, vibe, mode, max travel, coarse geo bucket.
+- **Outputs:** the ranked list returned (place IDs + scores + reasons).
+- **Outcomes:** clicks (navigate), saves, dismissals, repeats; optional “good pick?” feedback.
+- **Negative signals:** “not my vibe,” “too far,” “not open,” “not safe,” “already been.”
+- **Quality metrics:** time-to-pick, suggestion acceptance rate, repeat rate, “return next week” retention proxy.
+
+#### D) Keep in mind (don’t ship yourselves into a corner)
+- **Privacy:** location + behavior is sensitive. Default to minimal retention, coarse bucketing, and clear controls.
+- **Trust:** separate “promoted” from organic routing if/when you monetize; do not let ads break the “fit” guarantee.
+- **Cold start:** starter packs + simple vibe onboarding + tight heuristics beat “ML” early.
+- **Provider constraints:** treat external APIs as replaceable and avoid designing around any one provider’s quirks/limits.
+- **Safety:** don’t nudge people into sketchy situations; offer a safety mode and conservative defaults at night.
+
 ---
 
 ## 11) Technical architecture (hackathon-friendly)
@@ -211,7 +286,7 @@ This becomes valuable to:
 - UI: Tailwind + shadcn/ui (or equivalent)
 - Backend: Next.js route handlers (API routes)
 - Auth + DB: Supabase (optional for MVP; can ship without accounts)
-- Places: Google Places API (New)
+- Places: Google Places API (New) for hackathon speed (but implement via an adapter so we can swap providers later)
 - Travel time: Google Routes API (or use a simple distance heuristic in MVP)
 - Hosting: Vercel
 
@@ -429,13 +504,13 @@ Emotional payoff. Makes people feel the app is giving them their life back.
 
 | Stream | Who pays | How |
 |---|---|---|
-| Promoted placement | Local businesses | Pay to surface during their dead hours (CPC or cost-per-visit) |
-| Capacity fill offers | Businesses | "We're dead 2-4pm, here's $2 off for anyone routed here" — commission on redemption |
-| API access | Calendar/map/partner apps | Per-call or licensing to embed the action routing engine |
-| Demand intelligence | Commercial real estate, franchises, urban planners | Subscription data products (anonymized) |
-| Premium consumer | Power users | Calendar integration, errand batching, group features, advanced stats |
+| New City Pass (B2C) | Consumers | 1-3 month subscription optimized for “just moved here”: starter packs, safety mode, higher-quality routing, saved lists |
+| Partner distribution (B2B2C) | Employers/apartments/coworking | Bundle as a “welcome to the city” perk; private packs; cohort prompts |
+| Venue tools (B2B) | Venues/organizers | Publish micro-experiences and “walk-in friendly” windows; claim their place; lightweight offers (avoid ad-auctions early) |
+| Action Routing API/SDK (B2B) | Calendar/map/partner apps | Per-call or licensing to embed the routing engine in other surfaces |
+| Aggregated insights (B2B) | Planners/franchises/venues | Anonymized “micro-activity demand” trends (only after scale and with strict privacy) |
 
-Consumer product is **free**. Businesses pay to fill dead time. That's the shovel.
+Note: for the hackathon we do not need a business model. For a real company, avoid starting as “ads for foot traffic” because it creates trust issues; lead with consumer value and partner distribution first.
 
 ---
 
@@ -527,6 +602,8 @@ Body:
 }
 Returns: name, types, location, rating, photos, currentOpeningHours
 ```
+
+Adapter note (important): wrap Places calls behind an interface (e.g., `PlacesProvider.searchNearby(...)`) and store results in our normalized `third_places` shape. That keeps us provider-agnostic (Google today, Foursquare/OSM/venue partners tomorrow) and reduces “Google kills you” risk.
 
 **Google Routes API**
 ```
@@ -627,8 +704,10 @@ Free tier: 1,000 calls/day
 ### The infrastructure pitch (for business-minded judges)
 "The consumer app is day one. The real play is the action routing API: any calendar app, any map app, any campus app can embed our engine. And the data network — what people actually do with 30 minutes in a city at 2pm on a Tuesday — that dataset doesn't exist anywhere. We build it with every tap."
 
+Add-on (if asked “what do you own?”): “Places data is a commodity. We own the Third Place Graph (vibe taxonomy + time-fit + safety heuristics) and the outcome dataset of what people actually choose with 15-90 minutes.”
+
 ### New Heights angle
-"We're not inventing a new category. We're taking fragmented free time — something everyone has and nobody optimizes — and turning it into the most valuable inventory in local commerce. For people, we reclaim hours of dead time every week. For businesses, we route foot traffic during their emptiest hours. We sell the shovels."
+"We're not inventing a new category. We're taking fragmented free time — something everyone has and nobody optimizes — and turning it into micro-adventure momentum. For people, we reclaim hours of dead time every week and help new grads build a life in a new city. The shovel is the routing layer underneath: time + location + vibe -> the next best third place."
 
 ---
 
@@ -642,11 +721,11 @@ Free tier: 1,000 calls/day
 - The infrastructure/API story gives it legs beyond a consumer app
 
 ### Real concerns (be honest with yourselves)
-- **Google/Apple could ship this as a feature.** They have Calendar + Maps + Places + location. Mitigation: they haven't, and building a two-sided marketplace with business relationships is different from a feature.
-- **Behavior change is hard.** People with 25 free minutes default to scrolling. Mitigation: target new-to-city grads who are actively looking for things to do, not optimizing — they have motivation.
-- **Thin wrapper risk.** Places data, travel time, weather — it's all Google APIs. What do you own? The scoring algorithm, the vibe mapping, the preference learning, and eventually the activity dataset. That's what compounds.
-- **Two-sided marketplace for revenue.** Selling to businesses requires user density in a geography. Mitigation: start hyperlocal (one campus/neighborhood), prove density, then expand.
-- **"Feature not a company" risk.** Calendar apps (Motion, Reclaim, Clockwise) could add this. Mitigation: they're work-calendar tools. You're a life tool for a specific persona (young adults in new cities) — different distribution, different brand, different data.
+- **Google/Apple could ship something similar.** They own major surfaces (Maps/Calendar). Mitigation: do not compete on generic “best places” ranking; compete on a sharp persona + constraints (new grads, third places, micro-time windows, no-feed utility) and on an owned routing layer + third place graph.
+- **Behavior change is hard.** People with 25 free minutes default to scrolling. Mitigation: minimize friction (one button, 3-5 picks that all fit), optimize for “new city / new routine” moments, and avoid spam (the product is pull-first for MVP).
+- **Thin wrapper risk.** Places data is commoditized. Mitigation: build provider-agnostic adapters, own the Third Place Graph (vibe taxonomy + time-fit + safety heuristics + starter packs), and compound an outcome dataset (what was suggested vs clicked/saved/repeated).
+- **Two-sided marketplace is hard.** “Sell to local businesses” requires density and creates trust issues. Mitigation: start with B2C (New City Pass) or B2B2C distribution (employers/apartments/coworking); add venue tooling later as a value-add, not ads.
+- **"Feature not a company" risk.** Others can copy UI. Mitigation: treat the app as a reference client and build the routing engine + data layer as primitives (API/SDK), with distribution moats (partner packs, onboarding flows, embedded surfaces).
 
 ---
 

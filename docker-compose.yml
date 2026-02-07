@@ -1,0 +1,47 @@
+services:
+  client:
+    build: ./client
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3001
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    develop:
+      watch:
+        - action: sync
+          path: ./client/src
+          target: /app/src
+          ignore:
+            - node_modules/
+
+  server:
+    build: ./server
+    ports:
+      - "3001:3001"
+    env_file:
+      - ./server/.env
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./server/src
+          target: /app/src
+
+  ml:
+    build: ./ml
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./ml:/app
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./ml
+          target: /app
+          ignore:
+            - __pycache__/
+            - "*.pyc"
