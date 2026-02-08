@@ -68,7 +68,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     const { windowMinutes, origin } = body
     const maxTravelMinutes = body.maxTravelMinutes || Math.floor(windowMinutes / 2)
-    const priceLevel = body.priceLevel as number | undefined
+    const priceLevel = (req.body as any).priceLevel as number | undefined
 
     // --- 2. Get weather (async, don't block on failure) ---
     const weatherPromise = getWeather(origin)

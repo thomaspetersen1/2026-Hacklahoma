@@ -321,7 +321,8 @@ export default function RecommendationCard({ item, index, onCardClick }) {
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.transform = "translateY(-2px)";
-            e.currentTarget.style.boxShadow = "0 4px 12px rgba(255,216,131,0.5)";
+            e.currentTarget.style.boxShadow =
+              "0 4px 12px rgba(255,216,131,0.5)";
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.transform = "translateY(0)";
