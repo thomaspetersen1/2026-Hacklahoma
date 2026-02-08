@@ -5,6 +5,7 @@ import ProgressDots from "./modules/ProgressDots";
 import GhostButton from "./modules/GhostButton";
 import PrimaryButton from "./modules/PrimaryButton";
 import PillToggle from "./modules/PillToggle";
+import RecommendationCard from "./RecommendationCard";
 
 import { getSuggestions } from "../services/api";
 
