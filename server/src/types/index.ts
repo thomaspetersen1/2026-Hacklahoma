@@ -90,6 +90,9 @@ export interface Place {
 
   /** Street address */
   address?: string
+
+  /** Custom vibe tags from our enrichment layer (e.g., ["chill", "studious"]) */
+  vibeTags?: string[]
 }
 
 // =============================================================

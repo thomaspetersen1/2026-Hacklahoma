@@ -55,10 +55,18 @@ export function scorePlace(
 ): ScoreBreakdown {
   // --- Vibe Match (0.0 - 1.0) ---
   // How many of the user's vibes does this place match?
-  const primaryType = place.types[0] || ''
-  const matchingVibes = getMatchingVibes(primaryType, vibes)
+  // Use vibeTags from our enrichment layer when available
+  let matchingVibeCount = 0
+  if (place.vibeTags && place.vibeTags.length > 0) {
+    matchingVibeCount = vibes.filter(v =>
+      place.vibeTags!.some(tag => tag.toLowerCase() === v.toLowerCase())
+    ).length
+  } else {
+    const primaryType = place.types[0] || ''
+    matchingVibeCount = getMatchingVibes(primaryType, vibes).length
+  }
   const vibeMatch = vibes.length > 0
-    ? Math.min(matchingVibes.length / vibes.length, 1.0)
+    ? Math.min(matchingVibeCount / vibes.length, 1.0)
     : 0.5 // no vibes selected = neutral
 
   // --- Time Efficiency (0.0 - 1.0) ---
@@ -103,7 +111,7 @@ export function scorePlace(
 
   // --- Time-of-Day Boost ---
   const todBoosts = getTimeOfDayBoosts()
-  const todBonus = todBoosts[primaryType] || 0
+  const todBonus = todBoosts[place.types[0] || ''] || 0
 
   // --- Weighted Total ---
   const total = (
@@ -140,11 +148,20 @@ export function buildReasonCodes(
 ): string[] {
   const reasons: string[] = []
 
-  // Vibe match
-  const primaryType = place.types[0] || ''
-  const matching = getMatchingVibes(primaryType, vibes)
-  if (matching.length > 0) {
-    reasons.push(`${matching[0].charAt(0).toUpperCase() + matching[0].slice(1)} vibe`)
+  // Vibe match — use vibeTags when available
+  let matchingVibe: string | null = null
+  if (place.vibeTags && place.vibeTags.length > 0) {
+    const hit = vibes.find(v =>
+      place.vibeTags!.some(tag => tag.toLowerCase() === v.toLowerCase())
+    )
+    matchingVibe = hit || place.vibeTags[0]
+  } else {
+    const primaryType = place.types[0] || ''
+    const matching = getMatchingVibes(primaryType, vibes)
+    if (matching.length > 0) matchingVibe = matching[0]
+  }
+  if (matchingVibe) {
+    reasons.push(`${matchingVibe.charAt(0).toUpperCase() + matchingVibe.slice(1)} vibe`)
   }
 
   // Travel time
@@ -362,16 +379,21 @@ export async function getMLScores(
 export function enforceDiversity(suggestions: Suggestion[], maxResults: number = 5): Suggestion[] {
   const result: Suggestion[] = []
   const categoryCounts: Record<string, number> = {}
+  const seenNames = new Set<string>()
   const maxPerCategory = Math.ceil(maxResults / 2) // max 3 of same type in top 5
 
-  // First pass: add top suggestions respecting category limits
+  // First pass: add top suggestions respecting category limits + dedup by name
   for (const suggestion of suggestions) {
+    const nameLower = suggestion.name.toLowerCase()
+    if (seenNames.has(nameLower)) continue // skip duplicate names (e.g. two Walmarts)
+
     const category = suggestion.types[0] || 'other'
     const count = categoryCounts[category] || 0
 
     if (count < maxPerCategory) {
       result.push(suggestion)
       categoryCounts[category] = count + 1
+      seenNames.add(nameLower)
     }
 
     if (result.length >= maxResults) break
@@ -380,8 +402,10 @@ export function enforceDiversity(suggestions: Suggestion[], maxResults: number =
   // If we don't have enough (due to diversity filtering), backfill
   if (result.length < maxResults) {
     for (const suggestion of suggestions) {
-      if (!result.includes(suggestion)) {
+      const nameLower = suggestion.name.toLowerCase()
+      if (!result.includes(suggestion) && !seenNames.has(nameLower)) {
         result.push(suggestion)
+        seenNames.add(nameLower)
         if (result.length >= maxResults) break
       }
     }

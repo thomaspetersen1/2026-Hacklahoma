@@ -97,7 +97,7 @@ function StarRating({ rating }) {
   );
 }
 
-export default function RecommendationCard({ item, index }) {
+export default function RecommendationCard({ item, index, onCardClick }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -118,23 +118,48 @@ export default function RecommendationCard({ item, index }) {
         transition: `all 0.5s cubic-bezier(.4,0,.2,1) ${index * 0.08}s`,
       }}
     >
-      <Card hoverable style={{ height: "100%" }}>
-        {/* Header gradient with emoji */}
+      <Card
+        hoverable
+        style={{ height: "100%", cursor: "pointer" }}
+        onClick={() => onCardClick && onCardClick(item)}
+      >
+        {/* Header image or gradient fallback */}
         <div
           style={{
             width: "100%",
-            height: "100px",
+            height: "140px",
             borderRadius: "14px",
             background: `linear-gradient(135deg, ${color1}, ${color2})`,
             marginBottom: "16px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "40px",
             position: "relative",
+            overflow: "hidden",
           }}
         >
-          {emoji}
+          {item.photoUri ? (
+            <img
+              src={item.photoUri}
+              alt={item.name}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+                display: "block",
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "40px",
+              }}
+            >
+              {emoji}
+            </div>
+          )}
 
           {/* Open now badge */}
           {item.openNow && (
@@ -249,7 +274,7 @@ export default function RecommendationCard({ item, index }) {
               {reason}
             </span>
           ))}
-          {item.types?.map((type) => (
+          {item.types?.slice(0, 3).map((type) => (
             <span
               key={type}
               style={{
@@ -267,6 +292,45 @@ export default function RecommendationCard({ item, index }) {
             </span>
           ))}
         </div>
+
+        {/* Navigate Button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${item.location.lat},${item.location.lng}&travelmode=driving`;
+            window.open(mapsUrl, "_blank");
+          }}
+          style={{
+            width: "100%",
+            marginTop: "16px",
+            padding: "12px",
+            borderRadius: "999px",
+            border: "none",
+            background: C.yellow,
+            color: C.black,
+            fontFamily: "'DM Sans', sans-serif",
+            fontSize: "14px",
+            fontWeight: 600,
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+            boxShadow: "0 2px 8px rgba(255,216,131,0.3)",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateY(-2px)";
+            e.currentTarget.style.boxShadow = "0 4px 12px rgba(255,216,131,0.5)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = "0 2px 8px rgba(255,216,131,0.3)";
+          }}
+        >
+          <span>🧭</span>
+          Navigate
+        </button>
       </Card>
     </div>
   );

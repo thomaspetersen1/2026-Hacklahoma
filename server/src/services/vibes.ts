@@ -30,64 +30,81 @@ import { Vibe } from '../types'
  * Full list of supported types:
  * https://developers.google.com/maps/documentation/places/web-service/place-types
  *
- * We intentionally keep this focused on "third places" —
- * cafes, parks, bookstores, galleries — not generic retail.
+ * CRITICAL: We focus on ACTIVITY & EVENT places — places where experiences happen.
+ * NO errands, retail, or service places. We're about moments, not mundane tasks.
  */
 const VIBE_TO_PLACE_TYPES: Record<Vibe, string[]> = {
   chill: [
-    'cafe',           // coffee shops, tea houses
-    'book_store',     // bookstores, reading nooks
-    'library',        // public libraries, reading rooms
-    'bakery',         // bakeries, pastry shops
+    'cafe',           // coffee shops, tea houses — hang out & relax
+    'book_store',     // bookstores — browse & discover
+    'library',        // public libraries — quiet intellectual space
+    'bakery',         // bakeries — pastries & chat
   ],
 
   social: [
-    'bar',            // bars, pubs
-    'restaurant',     // sit-down restaurants
-    'bowling_alley',  // bowling, arcade
-    'cafe',           // coffee shops (good for meetups)
+    'bar',            // bars, pubs — gather & celebrate
+    'restaurant',     // sit-down dining — share meals & conversation
+    'bowling_alley',  // bowling — games & fun
+    'night_club',     // clubs — dancing & nightlife
+    'amusement_park', // theme parks — shared experiences
+    'cafe',           // coffee shops — meetups
   ],
 
   active: [
-    'gym',            // gyms, fitness centers
-    'park',           // parks, rec areas
-    'sports_complex', // sports facilities
+    'gym',            // fitness — sweat & strength
+    'park',           // parks — run, play, exercise
+    'sports_complex', // courts, fields — competitive play
   ],
 
   creative: [
-    'art_gallery',    // galleries
-    'museum',         // museums
+    'art_gallery',    // galleries — visual inspiration
+    'museum',         // museums — learn & explore
+    'tourist_attraction', // tourist spots — experiences
+    'sculpture',      // public art
+    'point_of_interest', // landmarks — cultural spots
+    'establishment',  // catch-all for interesting places
   ],
 
   outdoors: [
-    'park',           // parks, green spaces
-    'campground',     // outdoor areas
+    'park',           // parks — nature & green space
+    'campground',     // camping — wilderness
+    'point_of_interest', // outdoor landmarks
+    'tourist_attraction', // scenic attractions
   ],
 
   food: [
-    'restaurant',     // restaurants
-    'bakery',         // bakeries
-    'cafe',           // cafes
+    'restaurant',     // restaurants — culinary experiences
+    'bakery',         // bakeries — pastries & baking culture
+    'cafe',           // cafes — coffee & snacks
   ],
 
   'late-night': [
     'bar',            // bars open late
+    'night_club',     // clubs
     'restaurant',     // late-night dining
     'cafe',           // 24hr cafes
   ],
 
-  // "surprise" uses ALL types — the scoring engine handles diversity
+  // "surprise" uses ALL activity types — the scoring engine handles diversity
   surprise: [
     'cafe',
     'book_store',
     'library',
     'bakery',
     'bar',
+    'night_club',
     'restaurant',
     'park',
     'gym',
+    'sports_complex',
     'art_gallery',
     'museum',
+    'amusement_park',
+    'bowling_alley',
+    'tourist_attraction',
+    'sculpture',
+    'point_of_interest',
+    'establishment',
   ],
 }
 

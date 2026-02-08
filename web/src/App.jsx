@@ -4,11 +4,22 @@ import { C } from "./assets/colors";
 import Onboarding from "./components/Onboarding";
 import Questionnaire from "./components/Questionnaire";
 import Recommendations from "./components/Recommendations";
+import ProfileSelector from "./components/ProfileSelector";
+
+// Map profileId to location for location-based routing
+const PROFILE_LOCATIONS = {
+  alex: "norman",
+  jordan: "norman",
+  sam: "norman",
+  maya: "okc",
+  chris: "dallas",
+};
 
 export default function App() {
   const [page, setPage] = useState(0);
   const [hobbies, setHobbies] = useState([]);
   const [prefs, setPrefs] = useState({});
+  const [selectedProfile, setSelectedProfile] = useState(null);
 
   // Google Fonts
   useEffect(() => {
@@ -56,33 +67,98 @@ export default function App() {
     document.head.appendChild(style);
   }, []);
 
+  // Handle profile selection
+  const handleProfileChange = (profileId) => {
+    setSelectedProfile(profileId);
+    // If on onboarding, jump to questionnaire
+    // If on questionnaire or recommendations, stay on current page (refresh happens automatically)
+    if (page === 0) {
+      setPage(1);
+    }
+    // Otherwise stay on current page — the effect hooks will refetch with new profile
+  };
+
   if (page === 0) {
     return (
-      <Onboarding
-        onNext={(selected) => {
-          setHobbies(selected);
-          setPage(1);
-        }}
-      />
+      <div style={{ position: "relative" }}>
+        <div
+          style={{
+            position: "fixed",
+            top: "24px",
+            right: "24px",
+            zIndex: 1100,
+          }}
+        >
+          <ProfileSelector
+            selectedProfile={selectedProfile}
+            onProfileChange={handleProfileChange}
+          />
+        </div>
+        <Onboarding
+          onNext={(selected) => {
+            setHobbies(selected);
+            setPage(1);
+          }}
+        />
+      </div>
     );
   }
 
   if (page === 1) {
     return (
-      <Questionnaire
-        onBack={() => setPage(0)}
-        onNext={(data) => {
-          setPrefs(data);
-          setPage(2);
-        }}
-      />
+      <div style={{ position: "relative" }}>
+        <div
+          style={{
+            position: "fixed",
+            top: "24px",
+            right: "24px",
+            zIndex: 1100,
+          }}
+        >
+          <ProfileSelector
+            selectedProfile={selectedProfile}
+            onProfileChange={handleProfileChange}
+          />
+        </div>
+        <Questionnaire
+          onBack={() => {
+            setPage(0);
+            setSelectedProfile(null);
+          }}
+          onNext={(data) => {
+            setPrefs(data);
+            setPage(2);
+          }}
+          selectedProfile={selectedProfile}
+        />
+      </div>
     );
   }
 
   return (
-    <Recommendations
-      onBack={() => setPage(1)}
-      preferences={{ hobbies, ...prefs }}
-    />
+    <div style={{ position: "relative" }}>
+      <div
+        style={{
+          position: "fixed",
+          top: "24px",
+          right: "24px",
+          zIndex: 1100,
+        }}
+      >
+        <ProfileSelector
+          selectedProfile={selectedProfile}
+          onProfileChange={handleProfileChange}
+        />
+      </div>
+      <Recommendations
+        onBack={() => setPage(1)}
+        preferences={{
+          hobbies,
+          ...prefs,
+          location: selectedProfile ? PROFILE_LOCATIONS[selectedProfile] : undefined,
+          userId: selectedProfile,
+        }}
+      />
+    </div>
   );
 }
