@@ -82,6 +82,7 @@ export async function searchNearbyPlaces(
         'places.types',
         'places.location',
         'places.rating',
+        'places.userRatingCount',
         'places.priceLevel',
         'places.photos',
         'places.currentOpeningHours',
@@ -128,6 +129,7 @@ function normalizePlaceResponse(raw: any): Place {
       lng: raw.location?.longitude || 0,
     },
     rating: raw.rating,
+    userRatingsTotal: raw.userRatingCount,
     priceLevel: parsePriceLevel(raw.priceLevel),
     photoUri: raw.photos?.[0]?.name
       ? `https://places.googleapis.com/v1/${raw.photos[0].name}/media?maxWidthPx=400&key=${config.google.apiKey}`

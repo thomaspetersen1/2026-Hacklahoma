@@ -76,6 +76,9 @@ export interface Place {
   /** Google rating: 1.0 - 5.0 (optional, not all places have ratings) */
   rating?: number
 
+  /** Total number of user ratings from Google (for ML popularity feature) */
+  userRatingsTotal?: number
+
   /** Price level: 0 (free) to 4 (expensive) */
   priceLevel?: number
 

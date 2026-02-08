@@ -9,7 +9,7 @@ api_bp = Blueprint('api', __name__)
 
 # Load model on startup
 recommender = RandomForestRecommender()
-recommender.load_model('src/models/trained/random_forest.pkl')
+recommender.load_model('models/trained/random_forest.pkl')
 
 @api_bp.route('/recommend', methods=['POST'])
 def recommend():

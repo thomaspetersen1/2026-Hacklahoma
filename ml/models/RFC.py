@@ -88,7 +88,7 @@ class RandomForestRecommender:
         
         self.model.fit(X_scaled, y)
         
-        print("✅ Model trained successfully!")
+        print("[OK] Model trained successfully!")
         print(f"Feature importances:")
         for name, importance in zip(self.feature_names, self.model.feature_importances_):
             print(f"  {name}: {importance:.3f}")
@@ -137,7 +137,7 @@ class RandomForestRecommender:
             'model': self.model,
             'scaler': self.scaler
         }, path)
-        print(f"✅ Model saved to {path}")
+        print(f"[OK] Model saved to {path}")
     
     def load_model(self, path='models/trained/random_forest.pkl'):
         """Load trained model and scaler"""
@@ -145,6 +145,6 @@ class RandomForestRecommender:
             data = joblib.load(path)
             self.model = data['model']
             self.scaler = data['scaler']
-            print(f"✅ Model loaded from {path}")
+            print(f"[OK] Model loaded from {path}")
         else:
-            print(f"❌ No model found at {path}")
+            print(f"[ERROR] No model found at {path}")

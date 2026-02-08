@@ -161,11 +161,49 @@ export function buildReasonCodes(
 }
 
 /**
- * Try to get ML-enhanced scores from Tommy's preference model.
- * Falls back to local scores if ML service is down.
+ * Map Google Place types to Tommy's 4 ML categories.
+ * The model was trained on: food, outdoor, entertainment, culture.
+ */
+function mapToMLCategory(placeTypes: string[]): string {
+  const categoryMap: Record<string, string> = {
+    // food
+    cafe: 'food', restaurant: 'food', bakery: 'food', bar: 'food', coffee_shop: 'food',
+    // outdoor
+    park: 'outdoor', campground: 'outdoor', sports_complex: 'outdoor', gym: 'outdoor',
+    // culture
+    museum: 'culture', art_gallery: 'culture', library: 'culture',
+    // entertainment
+    bowling_alley: 'entertainment', book_store: 'entertainment',
+  }
+  for (const t of placeTypes) {
+    if (categoryMap[t]) return categoryMap[t]
+  }
+  return 'entertainment'
+}
+
+/**
+ * Midpoint dwell estimates in hours (mirrors fit.ts DWELL_ESTIMATES).
+ * Used by ML model's duration_match feature.
+ */
+function getDwellHours(placeType: string): number {
+  const midpoints: Record<string, number> = {
+    cafe: 17, bakery: 12, book_store: 20, library: 32,
+    bar: 45, restaurant: 30, bowling_alley: 37, gym: 27,
+    park: 22, sports_complex: 32, art_gallery: 35, museum: 45,
+    campground: 30, coffee_shop: 17,
+  }
+  return (midpoints[placeType] || 20) / 60
+}
+
+/**
+ * Get ML-enhanced scores from Tommy's RandomForest model.
+ * Translates server's Place data → Tommy's {activities, userPreferences} contract.
+ * Returns top-5 ML scores; other candidates fall back to heuristic via mlScore ?? localScore.
  *
- * Tommy's flow:
- *   Candidates + user preferences → ML model → predicted scores → top 5
+ * Tommy's endpoint: POST /api/recommend
+ * Input:  { activities: [{id, rating, userRatingsTotal, priceLevel, typicalDuration, category}],
+ *           userPreferences: {preferences, priceLevel, duration} }
+ * Output: { success: true, recommendations: [{...activity, ml_score}] }
  */
 export async function getMLScores(
   candidates: Place[],
@@ -173,28 +211,45 @@ export async function getMLScores(
   windowMinutes: number
 ): Promise<Record<string, number> | null> {
   try {
-    const response = await fetch(`${config.ml.url}/score`, {
+    // Translate candidates to Tommy's activity format
+    const activities = candidates.map(p => ({
+      id: p.id,
+      rating: p.rating ?? 3.0,
+      userRatingsTotal: p.userRatingsTotal ?? 100,
+      priceLevel: p.priceLevel ?? 2,
+      typicalDuration: getDwellHours(p.types[0] || 'cafe'),
+      category: mapToMLCategory(p.types),
+    }))
+
+    // Build user preferences (price not collected from user — default 2)
+    const userPreferences = {
+      preferences: [...new Set(activities.map(a => a.category))],
+      priceLevel: 2,
+      duration: windowMinutes / 60,
+    }
+
+    const response = await fetch(`${config.ml.url}/api/recommend`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        candidates: candidates.map(p => ({
-          id: p.id,
-          types: p.types,
-          rating: p.rating,
-          priceLevel: p.priceLevel,
-        })),
-        vibes,
-        windowMinutes,
-      }),
+      body: JSON.stringify({ activities, userPreferences }),
       // Timeout after 2s — don't let ML service slow down the response
       signal: AbortSignal.timeout(2000),
     })
 
     if (!response.ok) return null
 
-    // ML service returns: { scores: { "placeId": 0.85, ... } }
     const data = await response.json()
-    return data.scores
+    if (!data.success || !data.recommendations) return null
+
+    // Map Tommy's recommendations back to {placeId: score}
+    const scores: Record<string, number> = {}
+    for (const rec of data.recommendations) {
+      if (rec.id && typeof rec.ml_score === 'number') {
+        scores[rec.id] = rec.ml_score
+      }
+    }
+
+    return Object.keys(scores).length > 0 ? scores : null
   } catch {
     // ML service is down or slow — fall back to local scoring
     console.warn('ML service unavailable, using local scoring')
