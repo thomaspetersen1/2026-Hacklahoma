@@ -95,11 +95,11 @@ function Onboarding({ onNext }) {
             width: "80px",
             height: "80px",
             borderRadius: "24px",
-            background: C.yellow,
+            background: "#F6CECE",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 8px 32px rgba(255,216,131,0.5)",
+            boxShadow: "0 8px 32px rgba(246, 206, 206, 0.6)",
             margin: "0 auto 16px",
           }}
         >
@@ -116,7 +116,7 @@ function Onboarding({ onNext }) {
             letterSpacing: "-0.5px",
           }}
         >
-          VibeFinder
+          SideQuest
         </h1>
         <p
           style={{
@@ -127,7 +127,7 @@ function Onboarding({ onNext }) {
             margin: "8px 0 0",
           }}
         >
-          Your perfect day, curated
+          Life doesn't happen on a calendar.
         </p>
       </div>
 
@@ -144,7 +144,7 @@ function Onboarding({ onNext }) {
               textAlign: "center",
             }}
           >
-            What lights you up?
+            What sparks your quest?
           </h2>
           <p
             style={{
@@ -155,7 +155,7 @@ function Onboarding({ onNext }) {
               margin: "0 0 28px",
             }}
           >
-            Pick at least 3 interests so we can personalize your experience
+            Pick at least 3 interests so we can personalize your adventure
           </p>
 
           <div
