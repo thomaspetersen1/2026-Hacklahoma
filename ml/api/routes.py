@@ -1,4 +1,5 @@
-from flask import Blueprint, request, jsonify
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -8,7 +9,7 @@ from models.thompson import ContextualThompsonSampling
 from models.vibe_profiler import build_vibe_profile, get_vibe_vector
 from models.user_profile import get_profile, update_profile, get_all_profiles
 
-api_bp = Blueprint('api', __name__)
+router = APIRouter()
 
 # Load model on startup
 recommender = LightGBMRecommender()
@@ -23,8 +24,8 @@ bandit = ContextualThompsonSampling()
 # POST /api/recommend — LightGBM scoring (existing, upgraded)
 # =============================================================
 
-@api_bp.route('/recommend', methods=['POST'])
-def recommend():
+@router.post('/recommend')
+async def recommend(data: dict):
     """
     Score candidates using LightGBM model with 20 features (14 context + 6 user profile).
 
@@ -37,16 +38,15 @@ def recommend():
     Output: { "success": true, "recommendations": [...with ml_score] }
     """
     try:
-        data = request.json
-        activities = data['activities']
-        user_prefs = data['userPreferences']
+        activities = data.get('activities', [])
+        user_prefs = data.get('userPreferences', {})
 
         if not activities:
-            return jsonify({
+            return {
                 'success': True,
                 'recommendations': [],
                 'message': 'No activities to score'
-            })
+            }
 
         # Build context from request (new fields from server)
         raw_context = data.get('context', {})
@@ -73,10 +73,6 @@ def recommend():
         scored = recommender.predict_scores(activities, user_prefs, context, user_profile)
 
         # Blend Thompson sampling scores into the final ranking.
-        # LightGBM = "what should be good based on features"
-        # Thompson = "what we've learned from actual user feedback"
-        # Blend: 70% LightGBM + 30% Thompson (Thompson has high weight
-        # for new places due to Beta(1,1) uniform prior → exploration)
         hour = context.get('hour', 12)
         place_ids = [a.get('id', '') for a in scored]
         categories = [a.get('category', 'entertainment') for a in scored]
@@ -93,29 +89,26 @@ def recommend():
         # Re-sort by blended score
         scored.sort(key=lambda x: x.get('ml_score', 0), reverse=True)
 
-        return jsonify({
+        return {
             'success': True,
             'recommendations': scored,
             'total_scored': len(activities),
             'userId': user_id,
             'profileUsed': user_id is not None,
             'scoring': 'lgbm+thompson',
-        })
+        }
 
     except Exception as e:
         print(f"Error in /recommend: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # =============================================================
 # POST /api/thompson — Thompson Sampling scoring
 # =============================================================
 
-@api_bp.route('/thompson', methods=['POST'])
-def thompson_score():
+@router.post('/thompson')
+async def thompson_score(data: dict):
     """
     Get Thompson Sampling scores for candidates.
 
@@ -123,40 +116,39 @@ def thompson_score():
     Output: { "scores": { "place_id": 0.73, ... }, "source": "thompson" }
     """
     try:
-        data = request.json
-        place_ids = data['place_ids']
-        categories = data['categories']
+        place_ids = data.get('place_ids', [])
+        categories = data.get('categories', [])
         hour = data.get('hour', 12)
 
         scores = bandit.sample_scores(place_ids, categories, hour)
 
-        return jsonify({
+        return {
             'success': True,
             'scores': scores,
             'source': 'thompson'
-        })
+        }
 
     except Exception as e:
         print(f"Error in /thompson: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # =============================================================
 # GET /api/thompson/stats — Bandit state for demo
 # =============================================================
 
-@api_bp.route('/thompson/stats', methods=['GET'])
-def thompson_stats():
+@router.get('/thompson/stats')
+async def thompson_stats():
     """
     Returns all bandit arm stats for demo visualization.
     Shows alpha, beta, expected_value, observations per (place, context).
     """
     stats = bandit.get_all_stats()
-    return jsonify({
+    return {
         'success': True,
         'arms': stats,
         'total_arms': len(stats),
-    })
+    }
 
 
 # =============================================================
@@ -173,8 +165,8 @@ REWARD_MAP = {
     'dislike': 0,     # explicit dislike
 }
 
-@api_bp.route('/feedback', methods=['POST'])
-def feedback():
+@router.post('/feedback')
+async def feedback(data: dict):
     """
     Receive feedback events and update both Thompson Sampling bandit
     AND user profile (if userId provided).
@@ -189,8 +181,7 @@ def feedback():
     Output: { "success": true, "stats": { current belief about this place } }
     """
     try:
-        data = request.json
-        place_id = data['place_id']
+        place_id = data.get('place_id')
         category = data.get('category', 'entertainment')
         hour = data.get('hour', 12)
         event_type = data.get('event_type', 'impression')
@@ -219,19 +210,19 @@ def feedback():
         if user_id:
             response['updatedProfile'] = get_profile(user_id)
 
-        return jsonify(response)
+        return response
 
     except Exception as e:
         print(f"Error in /feedback: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # =============================================================
 # POST /api/vibe-profile — Place vibe analysis
 # =============================================================
 
-@api_bp.route('/vibe-profile', methods=['POST'])
-def vibe_profile():
+@router.post('/vibe-profile')
+async def vibe_profile(data: dict):
     """
     Get vibe profile for a place.
 
@@ -242,66 +233,65 @@ def vibe_profile():
     Output: { "vibes": { "chill": 0.8, "social": 0.3, ... } }
     """
     try:
-        data = request.json
         place_type = data.get('place_type', 'cafe')
         reviews = data.get('reviews', None)
 
         profile = build_vibe_profile(place_type, reviews)
         vector = get_vibe_vector(profile)
 
-        return jsonify({
+        return {
             'success': True,
             'vibes': profile,
             'vibe_vector': vector,
             'source': 'reviews' if reviews else 'place_type_default',
-        })
+        }
 
     except Exception as e:
         print(f"Error in /vibe-profile: {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # =============================================================
 # GET /api/profiles — List all personas (for frontend dropdown)
 # =============================================================
 
-@api_bp.route('/profiles', methods=['GET'])
-def list_profiles():
+@router.get('/profiles')
+async def list_profiles():
     """
     Returns all seeded personas with their current profiles.
     Used by the frontend /profile page to populate the persona dropdown.
     """
     profiles = get_all_profiles()
-    return jsonify({
+    return {
         'success': True,
         'profiles': profiles,
-    })
+    }
 
 
-@api_bp.route('/profiles/<user_id>', methods=['GET'])
-def get_single_profile(user_id):
+@router.get('/profiles/{user_id}')
+async def get_single_profile(user_id: str):
     """
     Returns a single user's profile.
     """
     profile = get_profile(user_id)
-    return jsonify({
+    return {
         'success': True,
         'userId': user_id,
         'profile': profile,
-    })
+    }
 
 
 # =============================================================
 # GET /api/health — Health check
 # =============================================================
 
-@api_bp.route('/health', methods=['GET'])
-def health():
+@router.get('/health')
+async def health():
     model_loaded = recommender.model is not None
-    return jsonify({
+    return {
         'status': 'ok',
         'model_loaded': model_loaded,
         'model_type': 'LightGBM',
         'features': len(recommender.feature_names),
         'thompson_arms': len(bandit.arms),
-    })
+    }
