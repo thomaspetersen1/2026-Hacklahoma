@@ -67,7 +67,8 @@ router.post('/', async (req: Request, res: Response) => {
     const vibes = rawVibes.map((v: string) => v.toLowerCase())
 
     const { windowMinutes, origin } = body
-    const maxTravelMinutes = body.maxTravelMinutes || (travelMode === 'walking' ? 10 : 15)
+    const maxTravelMinutes = body.maxTravelMinutes || Math.floor(windowMinutes / 2)
+    const priceLevel = body.priceLevel as number | undefined
 
     // --- 2. Get weather (async, don't block on failure) ---
     const weatherPromise = getWeather(origin)
@@ -103,11 +104,8 @@ router.post('/', async (req: Request, res: Response) => {
       const estTravel = estimateTravelTime(distance, travelMode)
       return { place, distance, estTravel }
     })
-    .filter(({ estTravel }) => estTravel <= maxTravelMinutes)
     // Sort by distance so we process closest first
     .sort((a, b) => a.distance - b.distance)
-    // Only get real travel times for top 10 (saves API quota)
-    .slice(0, 10)
 
     // --- 7. Second pass: real travel times (Routes API) ---
     const withRealTravelTimes = await Promise.all(
@@ -130,7 +128,13 @@ router.post('/', async (req: Request, res: Response) => {
         const timeBudget = calculateTimeBudget(travelMinutes, primaryType, windowMinutes)
         return { place, travelMinutes, timeBudget }
       })
-      .filter(({ timeBudget }) => timeBudget.fits)
+      // Don't exclude — score handles ranking by fit
+      // Price filter: if user set a max price, exclude places above it
+      .filter(({ place }) => {
+        if (priceLevel == null) return true
+        if (place.priceLevel == null) return true // keep places with no price data
+        return place.priceLevel <= priceLevel
+      })
 
     const candidatesAfterFit = fittingCandidates.length
 
@@ -168,7 +172,16 @@ router.post('/', async (req: Request, res: Response) => {
         place, timeBudget, vibes as Vibe[], travelMode, weather || undefined
       )
 
-      const matchingVibes = getMatchingVibes(place.types[0] || '', vibes as Vibe[])
+      // Return ALL vibeTags so the client-side filter can match any vibe,
+      // not just the ones sent in this request
+      let matchingVibes: string[] = []
+      if (place.vibeTags && place.vibeTags.length > 0) {
+        matchingVibes = place.vibeTags.map(tag => tag.toLowerCase())
+      } else {
+        // Fallback: infer from Google place types (check against ALL vibes, not just request)
+        const allVibes: Vibe[] = ['chill', 'social', 'active', 'creative', 'outdoors', 'food', 'late-night']
+        matchingVibes = getMatchingVibes(place.types[0] || '', allVibes)
+      }
 
       return {
         ...place,
@@ -195,7 +208,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // --- 10. Enforce diversity, return top 5 ---
-    const suggestions = enforceDiversity(scored, 5)
+    const suggestions = enforceDiversity(scored, scored.length)
       .map((s, i) => ({ ...s, rankPosition: i + 1 }))
 
     // --- 11. Log impressions for self-learning loop (fire-and-forget) ---

@@ -33,6 +33,7 @@ function toPlace(p: any): Place {
     priceLevel: p.priceLevel,
     openNow: p.openNow ?? true,
     address: p.address,
+    vibeTags: p.vibe_tags || [],  // Preserve custom vibe tags from JSON
   }
 }
 
@@ -94,12 +95,8 @@ export function getFallbackPlaces(includedTypes?: string[], origin?: LatLng): Pl
   const city = origin ? findClosestCity(origin) : CITIES[0]
   console.log(`[FALLBACK] Using ${city.name} data (${city.places.length} places)`)
 
-  if (!includedTypes || includedTypes.length === 0) {
-    return city.places
-  }
-
-  const typeSet = new Set(includedTypes)
-  return city.places.filter(p => p.types.some(t => typeSet.has(t)))
+  // Return ALL places — vibe filtering/sorting happens on the frontend
+  return city.places
 }
 
 /** Get all places across all cities (for training data grounding) */

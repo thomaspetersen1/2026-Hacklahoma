@@ -40,9 +40,27 @@ export async function searchNearbyPlaces(
   radiusMeters: number,
   includedTypes: string[]
 ): Promise<Place[]> {
+  // --- For demo cities (Norman, OKC, Dallas), use our enriched JSON data first ---
+  // This showcases our custom vibe tagging system, not Google's generic types
+  const demoOrigins = [
+    { lat: 35.2226, lng: -97.4395, city: 'Norman' },
+    { lat: 35.4676, lng: -97.5164, city: 'OKC' },
+    { lat: 32.7767, lng: -96.7970, city: 'Dallas' },
+  ]
+  const isNearDemoCity = demoOrigins.some(demo => {
+    const dLat = Math.abs(origin.lat - demo.lat)
+    const dLng = Math.abs(origin.lng - demo.lng)
+    return dLat < 0.5 && dLng < 0.5 // Within ~30 miles
+  })
+
+  if (isNearDemoCity) {
+    console.log('[PLACES] Using enriched JSON data for demo city')
+    return getFallbackPlaces(includedTypes, origin)
+  }
+
   // --- Check if API key is configured ---
   if (!config.google.apiKey || config.google.apiKey === 'AIzaxxx...') {
-    console.warn('Google Maps API key not configured — using Norman fallback data')
+    console.warn('Google Maps API key not configured — using fallback data')
     return getFallbackPlaces(includedTypes, origin)
   }
 
@@ -104,9 +122,45 @@ export async function searchNearbyPlaces(
   const data = await response.json()
 
   // --- Normalize into our Place type ---
+  // Place types to exclude — errands, retail, services (not experiences)
+  // We only want places where ACTIVITIES & EVENTS happen, not where tasks get done
+  const EXCLUDED_TYPES = new Set([
+    // Generic retail & stores
+    'store', 'department_store', 'clothing_store', 'shoe_store',
+    'grocery_store', 'hardware_store', 'home_goods_store',
+    'home_improvement_store', 'furniture_store', 'electronics_store',
+    'convenience_store', 'toy_store', 'gift_shop', 'antique_store',
+
+    // Automotive (errands)
+    'gas_station', 'car_dealer', 'car_repair', 'car_wash',
+    'automotive_repair', 'auto_parts_store',
+
+    // Professional services (not experiences)
+    'dentist', 'doctor', 'hospital', 'pharmacy', 'medical_clinic',
+    'optometrist', 'veterinary_care', 'lawyer', 'accounting',
+    'real_estate_agency', 'insurance_agency', 'bank', 'atm',
+
+    // Utilities & logistics (errands)
+    'storage', 'moving_company', 'locksmith', 'laundry',
+    'dry_cleaning', 'post_office', 'ups_store', 'fedex_office',
+
+    // Transit (not activities)
+    'transit_station', 'bus_station', 'train_station', 'airport',
+  ])
+
   const places: Place[] = (data.places || [])
     // Filter: only operational businesses
     .filter((p: any) => p.businessStatus === 'OPERATIONAL' || !p.businessStatus)
+    // Filter: exclude big-box stores and non-activity places
+    .filter((p: any) => {
+      const types: string[] = p.types || []
+      // Exclude if the PRIMARY type is a boring store
+      if (types.length > 0 && EXCLUDED_TYPES.has(types[0])) return false
+      // Exclude if most types are excluded (e.g. Walmart has 10+ store types)
+      const excludedCount = types.filter((t: string) => EXCLUDED_TYPES.has(t)).length
+      if (excludedCount >= 3) return false
+      return true
+    })
     .map((p: any) => normalizePlaceResponse(p))
 
   // --- Cache the results ---

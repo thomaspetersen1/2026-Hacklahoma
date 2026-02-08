@@ -8,18 +8,34 @@ import PillToggle from "./modules/PillToggle";
 import RecommendationCard from "./RecommendationCard";
 
 import { getSuggestions } from "../services/api";
+import PlaceDetailModal from "./PlaceDetailModal";
 
-const VIBES = ["Chill", "Adventurous", "Romantic", "Social", "Solo", "Artsy"];
+const VIBES = [
+  { label: "Chill", value: "chill" },
+  { label: "Social", value: "social" },
+  { label: "Active", value: "active" },
+  { label: "Creative", value: "creative" },
+  { label: "Outdoors", value: "outdoors" },
+  { label: "Food", value: "food" },
+  { label: "Late Night", value: "late-night" },
+];
+const PRICES = [
+  { label: "$", value: 1 },
+  { label: "$$", value: 2 },
+  { label: "$$$", value: 3 },
+];
 
 function Recommendations({ onBack, preferences }) {
   const [visible, setVisible] = useState(false);
-  const [activeVibe, setActiveVibe] = useState(null);
+  const [activeVibes, setActiveVibes] = useState([]);
+  const [activePrices, setActivePrices] = useState([]);
   const [items, setItems] = useState([]);
   const [suggestions, setSuggestions] = useState([]); // ← was missing
   const [loading, setLoading] = useState(false); // ← was missing
   const [error, setError] = useState(null); // ← was missing
   const [refreshKey, setRefreshKey] = useState(0);
   const [spinning, setSpinning] = useState(false);
+  const [selectedPlace, setSelectedPlace] = useState(null);
 
   useEffect(() => {
     setTimeout(() => setVisible(true), 100);
@@ -33,8 +49,9 @@ function Recommendations({ onBack, preferences }) {
       const data = await getSuggestions({
         vibe: preferences.hobbies,
         time: preferences.hours,
-        city: preferences.city || "",
-        priceRange: preferences.priceRange || "",
+        transport: preferences.transport,
+        location: preferences.location || 'norman',
+        userId: preferences.userId || null,
       });
 
       setSuggestions(data);
@@ -50,33 +67,51 @@ function Recommendations({ onBack, preferences }) {
     }
   };
 
-  // 2. Fetch on mount and when refreshing
+  // 2. Fetch on mount, when refreshing, or when preferences/profile changes
   useEffect(() => {
     handleGo();
-  }, [refreshKey]);
+  }, [refreshKey, preferences]);
 
-  // 3. Filter the fetched results by vibe
-  const pickItems = () => {
-    let pool = [...suggestions]; // ← was [data] which doesn't exist here
-
-    if (activeVibe) {
-      const vibeMatch = pool.filter((r) =>
-        r.tags?.some((t) => t.toLowerCase() === activeVibe.toLowerCase()),
-      );
-      if (vibeMatch.length >= 3) pool = vibeMatch;
-    }
-
-    const shuffled = pool.sort(() => Math.random() - 0.5);
-    setItems(shuffled.slice(0, 6));
-  };
-
-  // 4. Re-filter whenever suggestions or vibe changes
+  // 3. Re-filter whenever suggestions, price, or vibe changes
   useEffect(() => {
-    if (suggestions.length > 0) {
-      // ← was pool which doesn't exist here
-      pickItems();
+    if (suggestions.length === 0) return;
+
+    let pool = [...suggestions];
+
+    // Deduplicate by place name (different Walmart locations, etc.)
+    const seen = new Set();
+    pool = pool.filter((r) => {
+      const key = r.name?.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // Price filter — hide places not matching selected price levels
+    if (activePrices.length > 0) {
+      pool = pool.filter((r) => {
+        const pl = r.priceLevel ?? 1;
+        return activePrices.includes(pl);
+      });
     }
-  }, [suggestions, activeVibe]);
+
+    // Vibe filter — sort by relevance, don't hide anything
+    if (activeVibes.length > 0) {
+      pool.sort((a, b) => {
+        const getVibes = (r) => [
+          ...(r.vibeMatch || []),
+          ...(r.vibeTags || []),
+        ].map(v => v.toLowerCase());
+
+        const aHits = activeVibes.filter(v => getVibes(a).includes(v)).length;
+        const bHits = activeVibes.filter(v => getVibes(b).includes(v)).length;
+        if (bHits !== aHits) return bHits - aHits;
+        return (b.fitScore || 0) - (a.fitScore || 0);
+      });
+    }
+
+    setItems(pool);
+  }, [suggestions, activeVibes, activePrices]);
 
   // 5. Refresh = new API call
   const handleRefresh = () => {
@@ -187,29 +222,71 @@ function Recommendations({ onBack, preferences }) {
           </button>
         </div>
 
-        {/* Vibe filters */}
-        <div
-          style={{
-            display: "flex",
-            gap: "8px",
-            overflowX: "auto",
-            padding: "16px 0",
-            scrollbarWidth: "none",
-          }}
-        >
-          <PillToggle
-            label="All"
-            selected={activeVibe === null}
-            onClick={() => setActiveVibe(null)}
-          />
-          {VIBES.map((v) => (
+        {/* Filter rows */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px", padding: "16px 0" }}>
+          {/* Price filter */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: "13px",
+              fontWeight: 600,
+              color: C.grey,
+              minWidth: "44px",
+            }}>
+              💰 Price
+            </span>
             <PillToggle
-              key={v}
-              label={v}
-              selected={activeVibe === v}
-              onClick={() => setActiveVibe(activeVibe === v ? null : v)}
+              label="All"
+              selected={activePrices.length === 0}
+              onClick={() => setActivePrices([])}
             />
-          ))}
+            {PRICES.filter(p => p.value !== null).map((p) => (
+              <PillToggle
+                key={p.label}
+                label={p.label}
+                selected={activePrices.includes(p.value)}
+                onClick={() =>
+                  setActivePrices(
+                    activePrices.includes(p.value)
+                      ? activePrices.filter((v) => v !== p.value)
+                      : [...activePrices, p.value]
+                  )
+                }
+              />
+            ))}
+          </div>
+
+          {/* Vibe filter */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", overflowX: "auto", scrollbarWidth: "none" }}>
+            <span style={{
+              fontFamily: "'DM Sans', sans-serif",
+              fontSize: "13px",
+              fontWeight: 600,
+              color: C.grey,
+              minWidth: "44px",
+            }}>
+              ✨ Vibe
+            </span>
+            <PillToggle
+              label="All"
+              selected={activeVibes.length === 0}
+              onClick={() => setActiveVibes([])}
+            />
+            {VIBES.map((v) => (
+              <PillToggle
+                key={v.value}
+                label={v.label}
+                selected={activeVibes.includes(v.value)}
+                onClick={() =>
+                  setActiveVibes(
+                    activeVibes.includes(v.value)
+                      ? activeVibes.filter((vibe) => vibe !== v.value)
+                      : [...activeVibes, v.value]
+                  )
+                }
+              />
+            ))}
+          </div>
         </div>
 
         {/* Recommendation grid */}
@@ -226,6 +303,7 @@ function Recommendations({ onBack, preferences }) {
               key={`${refreshKey}-${item.name}`}
               item={item}
               index={i}
+              onCardClick={setSelectedPlace}
             />
           ))}
         </div>
@@ -239,7 +317,7 @@ function Recommendations({ onBack, preferences }) {
               color: C.greyLight,
             }}
           >
-            Finding your vibe...
+            {loading ? "Finding your vibe..." : "No suggestions found — try shuffling"}
           </div>
         )}
 
@@ -272,6 +350,14 @@ function Recommendations({ onBack, preferences }) {
           </p>
         </div>
       </PageWrapper>
+
+      {/* Place Detail Modal */}
+      {selectedPlace && (
+        <PlaceDetailModal
+          place={selectedPlace}
+          onClose={() => setSelectedPlace(null)}
+        />
+      )}
     </div>
   );
 }
