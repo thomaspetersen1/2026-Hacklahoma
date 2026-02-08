@@ -176,7 +176,7 @@ router.post('/', async (req: Request, res: Response) => {
         dwellMinutes: timeBudget.dwell,
         totalMinutes: timeBudget.total,
         vibeMatch: matchingVibes,
-        reason: reasonCodes,
+        reasonCodes: reasonCodes,
         fitScore: Math.round(finalScore * 100) / 100,
         scoreSource: (mlScore !== undefined ? 'ml' : 'heuristic') as 'ml' | 'heuristic',
       }
