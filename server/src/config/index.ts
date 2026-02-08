@@ -43,7 +43,7 @@ function optional(name: string, fallback: string): string {
 export const config = {
   // --- App ---
   port: parseInt(optional('PORT', '3001'), 10),
-  corsOrigin: optional('CORS_ORIGIN', 'http://localhost:5173'),
+  corsOrigin: optional('CORS_ORIGIN', 'http://localhost:5176'),
 
   // --- Google Maps Platform ---
   // Used by: services/places.ts, services/routes.ts
