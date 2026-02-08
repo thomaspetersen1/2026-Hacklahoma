@@ -28,7 +28,9 @@ import { getSearchRadius, estimateTravelTime, calculateTimeBudget } from '../ser
 import { searchNearbyPlaces, haversineDistance } from '../services/places'
 import { getTravelTime } from '../services/routes'
 import { getWeather } from '../services/weather'
-import { scorePlace, buildReasonCodes, getMLScores, enforceDiversity } from '../services/scoring'
+import { scorePlace, buildReasonCodes, getMLScores, getLastScoreSource, enforceDiversity, mapToMLCategory } from '../services/scoring'
+import { isNightTime } from '../services/vibes'
+import { config } from '../config'
 
 const router = Router()
 
@@ -133,12 +135,25 @@ router.post('/', async (req: Request, res: Response) => {
     const candidatesAfterFit = fittingCandidates.length
 
     // --- 9. Score ---
-    // Try ML scoring first, fall back to local heuristic
+    // Try ML scoring first (LightGBM + Thompson blend), fall back to local heuristic
+    const userId = body.userId
+    const mlStart = Date.now()
     const mlScores = await getMLScores(
       fittingCandidates.map(c => c.place),
       vibes as Vibe[],
-      windowMinutes
+      windowMinutes,
+      {
+        origin,
+        hour: new Date().getHours(),
+        dayOfWeek: new Date().getDay(),
+        weather: weather?.condition,
+        travelMinutesMap: Object.fromEntries(
+          fittingCandidates.map(c => [c.place.id, c.travelMinutes])
+        ),
+        userId,
+      }
     )
+    const mlLatencyMs = Date.now() - mlStart
 
     const scored: Suggestion[] = fittingCandidates.map(({ place, travelMinutes, timeBudget }) => {
       // Use ML score if available, otherwise local heuristic
@@ -161,16 +176,47 @@ router.post('/', async (req: Request, res: Response) => {
         dwellMinutes: timeBudget.dwell,
         totalMinutes: timeBudget.total,
         vibeMatch: matchingVibes,
-        reasonCodes,
+        reason: reasonCodes,
         fitScore: Math.round(finalScore * 100) / 100,
+        scoreSource: (mlScore !== undefined ? 'ml' : 'heuristic') as 'ml' | 'heuristic',
       }
     })
     // Sort by score (highest first)
     .sort((a, b) => b.fitScore - a.fitScore)
 
+    // --- 9b. Night safety: downrank isolated outdoor spots after 9pm ---
+    if (isNightTime()) {
+      const outdoorTypes = ['park', 'campground', 'sports_complex']
+      scored.forEach(s => {
+        if (s.types.some(t => outdoorTypes.includes(t))) s.fitScore *= 0.5
+      })
+      // Re-sort after downranking
+      scored.sort((a, b) => b.fitScore - a.fitScore)
+    }
+
     // --- 10. Enforce diversity, return top 5 ---
     const suggestions = enforceDiversity(scored, 5)
+      .map((s, i) => ({ ...s, rankPosition: i + 1 }))
 
+    // --- 11. Log impressions for self-learning loop (fire-and-forget) ---
+    const currentHour = new Date().getHours()
+    suggestions.forEach((s, i) => {
+      fetch(`${config.ml.url}/api/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          place_id: s.id,
+          category: mapToMLCategory(s.types),
+          hour: currentHour,
+          event_type: 'impression',
+          rank_position: i + 1,
+          userId,
+        }),
+        signal: AbortSignal.timeout(1000),
+      }).catch(() => {}) // don't block on failures
+    })
+
+    const scoreSource = getLastScoreSource()
     const response: SuggestResponse = {
       suggestions,
       weather: weather || undefined,
@@ -178,6 +224,9 @@ router.post('/', async (req: Request, res: Response) => {
         candidatesConsidered,
         candidatesAfterFit,
         processingTimeMs: Date.now() - startTime,
+        scoreSource,
+        mlLatencyMs,
+        mlUp: scoreSource === 'ml',
       },
     }
 

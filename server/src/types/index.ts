@@ -130,6 +130,12 @@ export interface Suggestion extends Place {
    * Higher = better match. Used for ranking, shown for transparency.
    */
   fitScore: number
+
+  /** Which scoring path produced this score */
+  scoreSource?: 'ml' | 'heuristic'
+
+  /** 1-indexed position in the ranked list */
+  rankPosition?: number
 }
 
 // =============================================================
@@ -187,6 +193,9 @@ export interface SuggestRequest {
 
   /** Max minutes they're willing to travel one-way (optional, default from travelMode) */
   maxTravelMinutes?: number
+
+  /** User persona ID for personalized scoring (e.g., "alex", "jordan", "sam") */
+  userId?: string
 }
 
 /**
@@ -210,6 +219,15 @@ export interface SuggestResponse {
 
     /** Total time to process this request (ms) */
     processingTimeMs: number
+
+    /** Which scoring path was used: 'ml' (LightGBM+Thompson) or 'heuristic' (local fallback) */
+    scoreSource?: 'ml' | 'heuristic'
+
+    /** How long the ML service call took (ms) */
+    mlLatencyMs?: number
+
+    /** Whether the ML service responded successfully */
+    mlUp?: boolean
   }
 }
 
@@ -261,6 +279,57 @@ export interface FeedbackRequest {
 
   /** How long the user's window was */
   windowMinutes?: number
+}
+
+// =============================================================
+// Recommendation Events (for ML feedback loop)
+// =============================================================
+
+/**
+ * Full event log for each recommendation interaction.
+ * Feeds the self-learning loop: Thompson Sampling + LightGBM retraining.
+ *
+ * Signal hierarchy:
+ *   navigate → strong positive (they actually went)
+ *   like/save → positive
+ *   click → ambiguous
+ *   impression → weak negative (shown but not engaged)
+ *   dismiss/dislike → negative
+ */
+export interface RecommendationEvent {
+  /** Unique event ID */
+  eventId: string
+
+  /** Groups events in one app session */
+  sessionId: string
+
+  /** What happened */
+  eventType: 'impression' | 'click' | 'navigate' | 'save' | 'dismiss' | 'like' | 'dislike'
+
+  /** Google Place ID */
+  placeId: string
+
+  /** ML category (food/outdoor/entertainment/culture) */
+  placeCategory: string
+
+  /** Context at recommendation time */
+  context: {
+    windowMinutes: number
+    travelMode: string
+    timeOfDay: string
+    hourOfDay: number
+    dayOfWeek: number
+  }
+
+  /** How this suggestion was scored/ranked */
+  scoring: {
+    fitScore: number
+    rankPosition: number
+    scoreSource: 'ml' | 'heuristic'
+  }
+
+  /** ISO 8601 timestamp */
+  timestamp: string
 }
 
 // =============================================================

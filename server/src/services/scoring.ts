@@ -18,9 +18,19 @@
  * NO external API calls in local mode. Pure math.
  */
 
-import { Place, Suggestion, Vibe, WeatherInfo, TimeBudget, ScoreBreakdown } from '../types'
+import { Place, Suggestion, Vibe, WeatherInfo, TimeBudget, ScoreBreakdown, LatLng } from '../types'
 import { getMatchingVibes, getTimeOfDayBoosts } from './vibes'
 import { config } from '../config'
+
+/** Context passed to ML service for richer feature engineering */
+export interface MLContext {
+  origin?: LatLng
+  hour?: number
+  dayOfWeek?: number
+  weather?: string
+  travelMinutesMap?: Record<string, number>
+  userId?: string
+}
 
 /** Weights for each score component — must sum to 1.0 */
 const WEIGHTS = {
@@ -201,7 +211,7 @@ const circuitBreaker = {
  * Map Google Place types to Tommy's 4 ML categories.
  * The model was trained on: food, outdoor, entertainment, culture.
  */
-function mapToMLCategory(placeTypes: string[]): string {
+export function mapToMLCategory(placeTypes: string[]): string {
   const categoryMap: Record<string, string> = {
     // food
     cafe: 'food', restaurant: 'food', bakery: 'food', bar: 'food', coffee_shop: 'food',
@@ -245,22 +255,22 @@ export function getLastScoreSource(): 'ml' | 'heuristic' {
 }
 
 /**
- * Get ML-enhanced scores from Tommy's RandomForest model.
- * Translates server's Place data → Tommy's {activities, userPreferences} contract.
+ * Get ML-enhanced scores from LightGBM model (14 features).
+ * Translates server's Place data + context → ML service contract.
  * Returns scores for ALL candidates (ML scores the full list, server handles ranking).
  *
  * Circuit breaker: after 3 consecutive failures, skips ML for 60s.
  * Sets lastScoreSource so callers can include scoreSource in response meta.
  *
- * Tommy's endpoint: POST /api/recommend
- * Input:  { activities: [{id, rating, userRatingsTotal, priceLevel, typicalDuration, category}],
- *           userPreferences: {preferences, priceLevel, duration} }
+ * ML endpoint: POST /api/recommend
+ * Input:  { activities, userPreferences, context }
  * Output: { success: true, recommendations: [{...activity, ml_score}] }
  */
 export async function getMLScores(
   candidates: Place[],
   vibes: Vibe[],
-  windowMinutes: number
+  windowMinutes: number,
+  mlContext?: MLContext
 ): Promise<Record<string, number> | null> {
   // Circuit breaker check
   if (circuitBreaker.isOpen()) {
@@ -269,7 +279,7 @@ export async function getMLScores(
   }
 
   try {
-    // Translate candidates to Tommy's activity format
+    // Translate candidates to ML activity format
     const activities = candidates.map(p => ({
       id: p.id,
       rating: p.rating ?? 3.0,
@@ -277,6 +287,8 @@ export async function getMLScores(
       priceLevel: p.priceLevel ?? 2,
       typicalDuration: getDwellHours(p.types[0] || 'cafe'),
       category: mapToMLCategory(p.types),
+      isOpen: p.openNow ?? true,
+      travelMinutes: mlContext?.travelMinutesMap?.[p.id],
     }))
 
     // Build user preferences (price not collected from user — default 2)
@@ -286,12 +298,21 @@ export async function getMLScores(
       duration: windowMinutes / 60,
     }
 
+    // Build context for ML feature engineering (time, weather, etc.)
+    const context = {
+      hour: mlContext?.hour ?? new Date().getHours(),
+      dayOfWeek: mlContext?.dayOfWeek ?? new Date().getDay(),
+      weather: mlContext?.weather ?? 'clear',
+      travelMode: 'walking',
+      travelMinutesMap: mlContext?.travelMinutesMap ?? {},
+    }
+
     const response = await fetch(`${config.ml.url}/api/recommend`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ activities, userPreferences }),
-      // Timeout after 2s — don't let ML service slow down the response
-      signal: AbortSignal.timeout(2000),
+      body: JSON.stringify({ activities, userPreferences, context, userId: mlContext?.userId }),
+      // Timeout after 5s — ML model loading + inference can take 2-3s
+      signal: AbortSignal.timeout(5000),
     })
 
     if (!response.ok) {

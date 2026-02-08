@@ -22,6 +22,7 @@ import { config } from './config'
 import healthRouter from './routes/health'
 import suggestRouter from './routes/suggest'
 import feedbackRouter from './routes/feedback'
+import profilesRouter from './routes/profiles'
 
 const app = express()
 
@@ -33,6 +34,7 @@ app.use(express.json())
 app.use('/api/health', healthRouter)
 app.use('/api/suggest', suggestRouter)
 app.use('/api/feedback', feedbackRouter)
+app.use('/api/profiles', profilesRouter)
 
 // --- Start server ---
 app.listen(config.port, () => {

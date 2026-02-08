@@ -15,6 +15,7 @@
 
 import { Place, LatLng } from '../types'
 import { config } from '../config'
+import { getFallbackPlaces } from './fallback'
 
 /** Base URL for the new Google Places API */
 const PLACES_API_URL = 'https://places.googleapis.com/v1/places:searchNearby'
@@ -41,7 +42,8 @@ export async function searchNearbyPlaces(
 ): Promise<Place[]> {
   // --- Check if API key is configured ---
   if (!config.google.apiKey || config.google.apiKey === 'AIzaxxx...') {
-    throw new Error('Google Maps API key not configured. Set GOOGLE_MAPS_API_KEY in .env')
+    console.warn('Google Maps API key not configured — using Norman fallback data')
+    return getFallbackPlaces(includedTypes, origin)
   }
 
   // --- Check cache first ---
@@ -95,7 +97,8 @@ export async function searchNearbyPlaces(
 
   if (!response.ok) {
     const error = await response.text()
-    throw new Error(`Google Places API error (${response.status}): ${error}`)
+    console.warn(`Google Places API error (${response.status}): ${error} — using Norman fallback`)
+    return getFallbackPlaces(includedTypes, origin)
   }
 
   const data = await response.json()
