@@ -4,6 +4,7 @@ import { C } from "./assets/colors";
 import Onboarding from "./components/Onboarding";
 import Questionnaire from "./components/Questionnaire";
 import Recommendations from "./components/Recommendations";
+import LandingPage from "./components/LandingPage";
 import ProfileSelector from "./components/ProfileSelector";
 
 // Map profileId to location for location-based routing
@@ -16,10 +17,14 @@ const PROFILE_LOCATIONS = {
 };
 
 export default function App() {
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useState(-1);
   const [hobbies, setHobbies] = useState([]);
   const [prefs, setPrefs] = useState({});
   const [selectedProfile, setSelectedProfile] = useState(null);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [page]);
 
   // Google Fonts
   useEffect(() => {
@@ -77,6 +82,9 @@ export default function App() {
     }
     // Otherwise stay on current page — the effect hooks will refetch with new profile
   };
+  if (page === -1) {
+    return <LandingPage onStart={() => setPage(0)} />;
+  }
 
   if (page === 0) {
     return (

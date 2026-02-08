@@ -90,32 +90,32 @@ function Onboarding({ onNext }) {
           marginBottom: "12px",
         }}
       >
-        <div
-          style={{
-            width: "80px",
-            height: "80px",
-            borderRadius: "24px",
-            background: "#F6CECE",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: "0 8px 32px rgba(246, 206, 206, 0.6)",
-            margin: "0 auto 16px",
-          }}
-        >
-          <span style={{ fontSize: "36px" }}>✦</span>
-        </div>
-        <h1
-          style={{
-            fontFamily: "'Playfair Display', serif",
-            fontSize: "42px",
-            fontWeight: 700,
-            color: C.black,
-            margin: 0,
-            textAlign: "center",
-            letterSpacing: "-0.5px",
-          }}
-        >
+    <div
+      style={{
+        width: "80px",
+        height: "80px",
+        borderRadius: "24px",
+        background: "#F6CECE",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        boxShadow: "0 8px 32px rgba(246, 206, 206, 0.6)",
+        margin: "0 auto 16px",
+      }}
+    >
+      <span style={{ fontSize: "36px" }}>✦</span>
+    </div>
+    <h1
+      style={{
+        fontFamily: "'Playfair Display', serif",
+        fontSize: "42px",
+        fontWeight: 700,
+        color: C.black,
+        margin: 0,
+        textAlign: "center",
+        letterSpacing: "-0.5px",
+      }}
+    >
           SideQuest
         </h1>
         <p

@@ -68,7 +68,7 @@ function Questionnaire({ onNext, onBack }) {
               letterSpacing: "-0.3px",
             }}
           >
-            Plan your vibe
+            Plan your quest
           </h1>
           <p
             style={{
