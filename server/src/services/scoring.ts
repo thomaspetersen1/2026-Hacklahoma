@@ -160,6 +160,43 @@ export function buildReasonCodes(
   return reasons
 }
 
+// =============================================================
+// Circuit Breaker — stop calling ML after repeated failures
+// =============================================================
+const circuitBreaker = {
+  failures: 0,
+  maxFailures: 3,
+  resetAfterMs: 60_000,
+  openedAt: 0,
+
+  /** Record a failure. Opens circuit after maxFailures. */
+  recordFailure() {
+    this.failures++
+    if (this.failures >= this.maxFailures) {
+      this.openedAt = Date.now()
+      console.warn(`ML circuit breaker OPEN — skipping ML for ${this.resetAfterMs / 1000}s`)
+    }
+  },
+
+  /** Record a success. Resets the counter. */
+  recordSuccess() {
+    this.failures = 0
+    this.openedAt = 0
+  },
+
+  /** Is the circuit open (i.e., should we skip ML)? */
+  isOpen(): boolean {
+    if (this.failures < this.maxFailures) return false
+    // Auto-reset after cooldown
+    if (Date.now() - this.openedAt > this.resetAfterMs) {
+      this.failures = 0
+      this.openedAt = 0
+      return false
+    }
+    return true
+  },
+}
+
 /**
  * Map Google Place types to Tommy's 4 ML categories.
  * The model was trained on: food, outdoor, entertainment, culture.
@@ -196,9 +233,24 @@ function getDwellHours(placeType: string): number {
 }
 
 /**
+ * Tracks which scoring source was used in the last getMLScores() call.
+ * 'ml' = ML service returned valid scores
+ * 'heuristic' = fell back to local scoring (ML down, circuit open, or bad response)
+ */
+let lastScoreSource: 'ml' | 'heuristic' = 'heuristic'
+
+/** Get which scoring source was used in the most recent getMLScores() call. */
+export function getLastScoreSource(): 'ml' | 'heuristic' {
+  return lastScoreSource
+}
+
+/**
  * Get ML-enhanced scores from Tommy's RandomForest model.
  * Translates server's Place data → Tommy's {activities, userPreferences} contract.
- * Returns top-5 ML scores; other candidates fall back to heuristic via mlScore ?? localScore.
+ * Returns scores for ALL candidates (ML scores the full list, server handles ranking).
+ *
+ * Circuit breaker: after 3 consecutive failures, skips ML for 60s.
+ * Sets lastScoreSource so callers can include scoreSource in response meta.
  *
  * Tommy's endpoint: POST /api/recommend
  * Input:  { activities: [{id, rating, userRatingsTotal, priceLevel, typicalDuration, category}],
@@ -210,6 +262,12 @@ export async function getMLScores(
   vibes: Vibe[],
   windowMinutes: number
 ): Promise<Record<string, number> | null> {
+  // Circuit breaker check
+  if (circuitBreaker.isOpen()) {
+    lastScoreSource = 'heuristic'
+    return null
+  }
+
   try {
     // Translate candidates to Tommy's activity format
     const activities = candidates.map(p => ({
@@ -236,10 +294,18 @@ export async function getMLScores(
       signal: AbortSignal.timeout(2000),
     })
 
-    if (!response.ok) return null
+    if (!response.ok) {
+      circuitBreaker.recordFailure()
+      lastScoreSource = 'heuristic'
+      return null
+    }
 
     const data = await response.json()
-    if (!data.success || !data.recommendations) return null
+    if (!data.success || !Array.isArray(data.recommendations)) {
+      circuitBreaker.recordFailure()
+      lastScoreSource = 'heuristic'
+      return null
+    }
 
     // Map Tommy's recommendations back to {placeId: score}
     const scores: Record<string, number> = {}
@@ -249,10 +315,20 @@ export async function getMLScores(
       }
     }
 
-    return Object.keys(scores).length > 0 ? scores : null
+    if (Object.keys(scores).length === 0) {
+      circuitBreaker.recordFailure()
+      lastScoreSource = 'heuristic'
+      return null
+    }
+
+    circuitBreaker.recordSuccess()
+    lastScoreSource = 'ml'
+    return scores
   } catch {
     // ML service is down or slow — fall back to local scoring
     console.warn('ML service unavailable, using local scoring')
+    circuitBreaker.recordFailure()
+    lastScoreSource = 'heuristic'
     return null
   }
 }

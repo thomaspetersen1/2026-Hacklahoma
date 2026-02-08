@@ -36,12 +36,12 @@ def recommend():
                 'message': 'No activities to score'
             })
         
-        # Get top 5 recommendations
-        top_5 = recommender.recommend_top_n(activities, user_prefs, n=5)
-        
+        # Score ALL candidates (server handles ranking + diversity)
+        scored = recommender.predict_scores(activities, user_prefs)
+
         return jsonify({
             'success': True,
-            'recommendations': top_5,
+            'recommendations': scored,
             'total_scored': len(activities)
         })
     
