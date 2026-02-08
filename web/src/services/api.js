@@ -22,8 +22,8 @@ export async function getSuggestions(userData) {
     
     // Map travel mode (you might want to add this to the form)
     const travelMode = userData.travelMode || 'WALK';
-    
-    const response = await fetch(`${API_URL}/suggest`, {
+
+    const response = await fetch(`api/suggest`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
