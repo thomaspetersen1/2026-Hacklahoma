@@ -1,17 +1,26 @@
-from flask import Flask
-from flask_cors import CORS
-from api.routes import api_bp
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from api.routes import router
 import os
 
-app = Flask(__name__)
-CORS(app)
+app = FastAPI(title="Sorcerer Troop ML Service")
 
-app.register_blueprint(api_bp, url_prefix='/api')
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-@app.route('/health')
+app.include_router(router, prefix="/api")
+
+@app.get("/health")
 def health():
     return {'status': 'ok', 'service': 'ml-service'}
 
 if __name__ == '__main__':
+    import uvicorn
     port = int(os.getenv('PORT', 8000))
-    app.run(host='0.0.0.0', port=port, debug=True, use_reloader=False)
+    uvicorn.run(app, host='0.0.0.0', port=port)
