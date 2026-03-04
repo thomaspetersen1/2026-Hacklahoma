@@ -32,7 +32,7 @@ export interface LatLng {
  *   driving → DRIVE
  *   transit → TRANSIT
  */
-export type TravelMode = 'walking' | 'driving' | 'transit'
+export type TravelMode = 'walking' | 'driving' | 'transit' | 'bicycle'
 
 /**
  * Vibe tags the user can select.

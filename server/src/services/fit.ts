@@ -80,10 +80,11 @@ export function calculateTimeBudget(
  */
 export function estimateTravelTime(
   distanceMeters: number,
-  travelMode: 'walking' | 'driving' | 'transit'
+  travelMode: 'walking' | 'driving' | 'transit' | 'bicycle'
 ): number {
   const speedMetersPerMinute: Record<string, number> = {
     walking: 70,   // ~4.2 km/h (slow walk with crossings)
+    bicycle: 230,  // ~14 km/h (casual cycling)
     driving: 400,  // ~24 km/h (city driving with lights)
     transit: 200,  // ~12 km/h (includes wait + walk to stop)
   }
@@ -96,11 +97,12 @@ export function estimateTravelTime(
  * Used by Places API to limit the search area.
  */
 export function getSearchRadius(
-  travelMode: 'walking' | 'driving' | 'transit',
+  travelMode: 'walking' | 'driving' | 'transit' | 'bicycle',
   windowMinutes: number
 ): number {
   const baseRadius: Record<string, number> = {
     walking: 800,    // ~10 min walk
+    bicycle: 2500,   // ~10 min cycle
     driving: 5000,   // ~10 min drive
     transit: 3000,   // ~15 min transit
   }

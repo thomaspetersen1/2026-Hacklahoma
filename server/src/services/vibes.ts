@@ -57,19 +57,19 @@ const VIBE_TO_PLACE_TYPES: Record<Vibe, string[]> = {
   ],
 
   creative: [
-    'art_gallery',    // galleries — visual inspiration
-    'museum',         // museums — learn & explore
-    'tourist_attraction', // tourist spots — experiences
-    'sculpture',      // public art
-    'point_of_interest', // landmarks — cultural spots
-    'establishment',  // catch-all for interesting places
+    'art_gallery',          // galleries — visual inspiration
+    'museum',               // museums — learn & explore
+    'tourist_attraction',   // tourist spots — experiences
+    'cultural_center',      // community arts & culture spaces
+    'performing_arts_theater', // theater & live performance
+    'sculpture',            // public art
   ],
 
   outdoors: [
-    'park',           // parks — nature & green space
-    'campground',     // camping — wilderness
-    'point_of_interest', // outdoor landmarks
-    'tourist_attraction', // scenic attractions
+    'park',                 // parks — nature & green space
+    'campground',           // camping — wilderness
+    'tourist_attraction',   // scenic attractions
+    'national_park',        // national/state parks
   ],
 
   food: [
@@ -102,9 +102,11 @@ const VIBE_TO_PLACE_TYPES: Record<Vibe, string[]> = {
     'amusement_park',
     'bowling_alley',
     'tourist_attraction',
+    'cultural_center',
+    'performing_arts_theater',
     'sculpture',
-    'point_of_interest',
-    'establishment',
+    'national_park',
+    'campground',
   ],
 }
 

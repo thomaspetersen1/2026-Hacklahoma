@@ -50,7 +50,7 @@ export async function searchNearbyPlaces(
   const isNearDemoCity = demoOrigins.some(demo => {
     const dLat = Math.abs(origin.lat - demo.lat)
     const dLng = Math.abs(origin.lng - demo.lng)
-    return dLat < 0.5 && dLng < 0.5 // Within ~30 miles
+    return dLat < 0.002 && dLng < 0.002 // Within ~200m of exact demo coordinate only
   })
 
   if (isNearDemoCity) {

@@ -49,7 +49,7 @@ function Onboarding({ onNext }) {
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        padding: "48px 24px",
+        padding: "24px 24px",
         position: "relative",
         overflow: "hidden",
       }}
@@ -87,53 +87,44 @@ function Onboarding({ onNext }) {
           opacity: logoVisible ? 1 : 0,
           transform: logoVisible ? "scale(1)" : "scale(0.8)",
           transition: "all 0.8s cubic-bezier(.4,0,.2,1)",
-          marginBottom: "12px",
+          marginBottom: "8px",
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
         }}
       >
         <div
           style={{
-            width: "80px",
-            height: "80px",
-            borderRadius: "24px",
+            width: "48px",
+            height: "48px",
+            borderRadius: "16px",
             background: "#F6CECE",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 8px 32px rgba(246, 206, 206, 0.6)",
-            margin: "0 auto 16px",
+            boxShadow: "0 4px 16px rgba(246, 206, 206, 0.6)",
+            flexShrink: 0,
           }}
         >
-          <span style={{ fontSize: "36px" }}>✦</span>
+          <span style={{ fontSize: "22px" }}>✦</span>
         </div>
         <h1
           style={{
             fontFamily: "'Playfair Display', serif",
-            fontSize: "42px",
+            fontSize: "30px",
             fontWeight: 700,
             color: C.black,
             margin: 0,
-            textAlign: "center",
             letterSpacing: "-0.5px",
           }}
         >
           SideQuest
         </h1>
-        <p
-          style={{
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: "16px",
-            color: C.grey,
-            textAlign: "center",
-            margin: "8px 0 0",
-          }}
-        >
-          Life doesn't happen on a calendar.
-        </p>
       </div>
 
       {/* Content */}
       <PageWrapper visible={contentVisible}>
-        <Card style={{ marginTop: "32px", padding: "32px" }}>
+        <Card style={{ marginTop: "12px", padding: "28px" }}>
           <h2
             style={{
               fontFamily: "'Playfair Display', serif",
@@ -152,7 +143,7 @@ function Onboarding({ onNext }) {
               fontSize: "14px",
               color: C.greyLight,
               textAlign: "center",
-              margin: "0 0 28px",
+              margin: "0 0 20px",
             }}
           >
             Pick at least 3 interests so we can personalize your adventure
@@ -196,9 +187,9 @@ function Onboarding({ onNext }) {
           )}
         </Card>
 
-        <div style={{ textAlign: "center", marginTop: "28px" }}>
+        <div style={{ textAlign: "center", marginTop: "20px" }}>
           <ProgressDots current={0} total={3} />
-          <div style={{ marginTop: "20px" }}>
+          <div style={{ marginTop: "16px" }}>
             <PrimaryButton
               disabled={selected.length < 3}
               onClick={() => onNext(selected)}

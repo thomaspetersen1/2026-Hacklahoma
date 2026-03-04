@@ -36,6 +36,58 @@ That's the product. Now let me explain what's happening under the hood."
 
 ---
 
+## [BACKEND — ~2.5 minutes]
+
+"Everything flows through a single endpoint: `POST /api/suggest`. Let me walk you through what actually happens inside that request.
+
+---
+
+**Step one: Vibe translation.**
+
+The user selects vibes — 'chill', 'social', 'active', and so on. The backend has a static mapping table that converts those vibes into Google Places API `includedTypes`. 'Chill' becomes cafes, bookstores, libraries, bakeries. 'Active' becomes gyms, parks, sports complexes. This mapping is the semantic bridge between how a person feels and what Google knows about. It's a lookup table, not a model — fast, deterministic, and easy to tune.
+
+If no vibes are selected, the system defaults to 'surprise', which opens up all activity types and lets the scoring engine do the filtering.
+
+---
+
+**Step two: two-pass candidate filtering.**
+
+We don't call the Routes API for every place — that would be expensive and slow. Instead we run two passes.
+
+First pass: we use the **Haversine formula** to compute straight-line distance from the user to every candidate. This is free, runs in-process, and lets us sort by proximity in microseconds. We also compute a heuristic travel estimate using fixed speed constants — 70 meters per minute for walking, 400 for driving in a city. This immediately cuts down the candidate pool.
+
+Second pass: we call the **Google Routes API** in parallel for the remaining candidates to get real travel times — actual routing through streets, factoring in road type, not just straight-line distance. We request only `routes.duration` in the field mask, which is the cheapest call structure. Results are cached by origin-destination-mode tuple with a configurable TTL, so repeated requests for the same route don't cost anything.
+
+---
+
+**Step three: time budget math.**
+
+For each candidate, we calculate a full `TimeBudget`: travel there, plus estimated dwell time at that type of place, plus travel back, plus a 5-minute buffer. If `travelTo + dwell + travelBack + 5 > windowMinutes`, the place is a hard no. We don't bend this constraint.
+
+Dwell estimates are per-place-type. A café is 15–20 minutes. A museum is 30–60. A bar is 30–60. Within each range, we scale based on the user's time window — if you have 90 minutes, we assume you'll linger; if you have 30, we assume a quick visit. These are ML-informed starting points; the model will learn better estimates over time from actual usage.
+
+---
+
+**Step four: heuristic scoring.**
+
+Every candidate that passes the time filter gets a heuristic score — a weighted sum of five components, clamped to 0.0–1.0.
+
+Vibe match is 30% of the score. Time efficiency is 25% — specifically, how well the total time fills the user's window. The sweet spot is 70–90% usage; too short wastes time, too close to 100% is stressful. Distance is 20%. Novelty is 15% — currently a neutral constant, but the structure is in place to penalize places the user has been to before. Rating is 10%, and it's intentionally the smallest weight — we're not Yelp.
+
+On top of that, we add weather bonuses for outdoor spots when conditions are favorable, and time-of-day bonuses: cafes and bakeries score higher in the morning, parks in the afternoon, bars in the evening.
+
+---
+
+**Step five: diversity enforcement and impression logging.**
+
+Before returning results, a post-processing pass enforces category diversity. No more than three places from the same Google type can appear in the top five. This prevents 'all coffee shops' when the user picks 'chill.'
+
+Finally — and this is important — before the response goes out, we fire-and-forget impression events to the ML service for every suggestion returned. Each event records the place ID, category, hour, and rank position. This is the data flywheel. The user never waits on it — we use `AbortSignal.timeout(1000)` and swallow any errors — but every impression feeds the Thompson Sampling bandit that the ML section will cover.
+
+The response includes a `meta` block that tells you how many candidates were considered, how many passed the fit filter, total processing time, and whether scoring came from ML or the heuristic fallback."
+
+---
+
 ## [ML SYSTEM — ~3 minutes]
 
 "There are four ML components working together. Let me go through each one.

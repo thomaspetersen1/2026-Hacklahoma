@@ -7,7 +7,7 @@ import PrimaryButton from "./modules/PrimaryButton";
 import PillToggle from "./modules/PillToggle";
 import RecommendationCard from "./RecommendationCard";
 
-import { getSuggestions } from "../services/api";
+import { getSuggestions, getUserLocation } from "../services/api";
 import PlaceDetailModal from "./PlaceDetailModal";
 
 const VIBES = [
@@ -28,7 +28,7 @@ const PRICES = [
 function Recommendations({ onBack, preferences }) {
   const [visible, setVisible] = useState(false);
   const [activeVibes, setActiveVibes] = useState([]);
-  const [activePrices, setActivePrices] = useState([]);
+  const [activePrice, setActivePrice] = useState(null);
   const [items, setItems] = useState([]);
   const [suggestions, setSuggestions] = useState([]); // ← was missing
   const [loading, setLoading] = useState(false); // ← was missing
@@ -46,11 +46,17 @@ function Recommendations({ onBack, preferences }) {
     setLoading(true);
     setError(null);
     try {
+      // Use demo profile location if set, otherwise try real GPS, fall back to Norman
+      const origin = !preferences.location
+        ? (await getUserLocation()) || undefined
+        : undefined;
+
       const data = await getSuggestions({
-        vibe: preferences.hobbies,
+        vibe: activeVibes.length > 0 ? activeVibes : preferences.hobbies,
         time: preferences.hours,
         transport: preferences.transport,
         location: preferences.location || 'norman',
+        origin,
         userId: preferences.userId || null,
       });
 
@@ -67,10 +73,10 @@ function Recommendations({ onBack, preferences }) {
     }
   };
 
-  // 2. Fetch on mount, when refreshing, or when preferences/profile changes
+  // 2. Fetch on mount, when refreshing, preferences, or selected vibes change
   useEffect(() => {
     handleGo();
-  }, [refreshKey, preferences]);
+  }, [refreshKey, preferences, activeVibes]);
 
   // 3. Re-filter whenever suggestions, price, or vibe changes
   useEffect(() => {
@@ -87,15 +93,27 @@ function Recommendations({ onBack, preferences }) {
       return true;
     });
 
-    // Price filter — hide places not matching selected price levels
-    if (activePrices.length > 0) {
+    // Price filter — single-select, map to Google's 0-4 scale
+    // $ (1) = free(0) or inexpensive(1), $$ (2) = moderate(2), $$$ (3) = expensive(3) or very expensive(4)
+    if (activePrice !== null) {
+      const PRICE_RANGES = { 1: [0, 1], 2: [2], 3: [3, 4] };
+      const allowed = new Set(PRICE_RANGES[activePrice] ?? [activePrice]);
       pool = pool.filter((r) => {
-        const pl = r.priceLevel ?? 1;
-        return activePrices.includes(pl);
+        if (r.priceLevel == null) return true; // no price data → always show
+        return allowed.has(r.priceLevel);
       });
     }
 
-    // Vibe filter — sort by relevance, don't hide anything
+    // Sort by fit score (highest match first), then by price level descending if price filter active
+    pool.sort((a, b) => {
+      if (activePrice !== null) {
+        const priceDiff = (b.priceLevel ?? 0) - (a.priceLevel ?? 0);
+        if (priceDiff !== 0) return priceDiff;
+      }
+      return (b.fitScore || 0) - (a.fitScore || 0);
+    });
+
+    // Vibe filter — re-sort by vibe relevance on top of fit score
     if (activeVibes.length > 0) {
       pool.sort((a, b) => {
         const getVibes = (r) => [
@@ -111,7 +129,7 @@ function Recommendations({ onBack, preferences }) {
     }
 
     setItems(pool);
-  }, [suggestions, activeVibes, activePrices]);
+  }, [suggestions, activeVibes, activePrice]);
 
   // 5. Refresh = new API call
   const handleRefresh = () => {
@@ -223,7 +241,13 @@ function Recommendations({ onBack, preferences }) {
         </div>
 
         {/* Filter rows */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px", padding: "16px 0" }}>
+        <div style={{
+          display: "flex", flexDirection: "column", gap: "10px",
+          padding: "16px",
+          background: "rgba(255,255,255,0.45)",
+          borderRadius: "20px",
+          margin: "8px 0",
+        }}>
           {/* Price filter */}
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <span style={{
@@ -237,21 +261,15 @@ function Recommendations({ onBack, preferences }) {
             </span>
             <PillToggle
               label="All"
-              selected={activePrices.length === 0}
-              onClick={() => setActivePrices([])}
+              selected={activePrice === null}
+              onClick={() => setActivePrice(null)}
             />
-            {PRICES.filter(p => p.value !== null).map((p) => (
+            {PRICES.map((p) => (
               <PillToggle
                 key={p.label}
                 label={p.label}
-                selected={activePrices.includes(p.value)}
-                onClick={() =>
-                  setActivePrices(
-                    activePrices.includes(p.value)
-                      ? activePrices.filter((v) => v !== p.value)
-                      : [...activePrices, p.value]
-                  )
-                }
+                selected={activePrice === p.value}
+                onClick={() => setActivePrice(activePrice === p.value ? null : p.value)}
               />
             ))}
           </div>
@@ -304,6 +322,7 @@ function Recommendations({ onBack, preferences }) {
               item={item}
               index={i}
               onCardClick={setSelectedPlace}
+              userId={preferences?.userId}
             />
           ))}
         </div>

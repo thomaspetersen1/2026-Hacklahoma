@@ -57,8 +57,8 @@ router.post('/', async (req: Request, res: Response) => {
 
     // --- Normalize inputs (accept frontend format OR backend format) ---
     const travelModeMap: Record<string, string> = {
-      WALK: 'walking', DRIVE: 'driving', TRANSIT: 'transit',
-      walking: 'walking', driving: 'driving', transit: 'transit',
+      WALK: 'walking', DRIVE: 'driving', TRANSIT: 'transit', BICYCLE: 'bicycle',
+      walking: 'walking', driving: 'driving', transit: 'transit', bicycle: 'bicycle',
     }
     const travelMode = (travelModeMap[body.travelMode] || 'walking') as import('../types').TravelMode
 
@@ -151,6 +151,7 @@ router.post('/', async (req: Request, res: Response) => {
         hour: new Date().getHours(),
         dayOfWeek: new Date().getDay(),
         weather: weather?.condition,
+        travelMode,
         travelMinutesMap: Object.fromEntries(
           fittingCandidates.map(c => [c.place.id, c.travelMinutes])
         ),

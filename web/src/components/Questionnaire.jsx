@@ -201,7 +201,7 @@ function Questionnaire({ onNext, onBack }) {
                   style={{
                     flex: 1,
                     padding: "20px 12px",
-                    borderRadius: "16px",
+                    borderRadius: "20px",
                     border: sel ? `2px solid ${C.black}` : "2px solid #e0e0e0",
                     background: sel ? C.yellow : C.white,
                     cursor: "pointer",
