@@ -22,10 +22,6 @@ export default function App() {
   const [prefs, setPrefs] = useState({});
   const [selectedProfile, setSelectedProfile] = useState(null);
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [page]);
-
   // Google Fonts
   useEffect(() => {
     const link = document.createElement("link");
@@ -163,7 +159,9 @@ export default function App() {
         preferences={{
           hobbies,
           ...prefs,
-          location: selectedProfile ? PROFILE_LOCATIONS[selectedProfile] : undefined,
+          location: selectedProfile
+            ? PROFILE_LOCATIONS[selectedProfile]
+            : undefined,
           userId: selectedProfile,
         }}
       />
