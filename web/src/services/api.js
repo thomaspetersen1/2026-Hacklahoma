@@ -10,7 +10,7 @@ const LOCATIONS = {
 // Map frontend transport labels → backend travel modes
 const TRANSPORT_MAP = {
   'Car': 'DRIVE',
-  'Bike': 'WALK',
+  'Bike': 'BICYCLE',
   'Walking': 'WALK',
 };
 
@@ -37,6 +37,32 @@ const HOBBY_TO_VIBE_MAP = {
 
 export function getLocations() {
   return LOCATIONS;
+}
+
+/** Attempt to get the user's real GPS coordinates. Resolves null on denial or timeout. */
+export function getUserLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) { resolve(null); return; }
+    const timeout = setTimeout(() => resolve(null), 5000);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { clearTimeout(timeout); resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }); },
+      () => { clearTimeout(timeout); resolve(null); }
+    );
+  });
+}
+
+export async function sendFeedback(placeId, action, userId = null) {
+  try {
+    const body = { placeId, action };
+    if (userId) body.userId = userId;
+    await fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    console.error('Feedback error:', error);
+  }
 }
 
 export async function getSuggestions(userData) {

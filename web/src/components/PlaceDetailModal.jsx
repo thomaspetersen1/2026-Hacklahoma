@@ -464,7 +464,7 @@ export default function PlaceDetailModal({ place, onClose }) {
                             gap: "10px",
                             padding: "10px 12px",
                             background: C.pink,
-                            borderRadius: "8px",
+                            borderRadius: "14px",
                           }}
                         >
                           <span style={{ fontSize: "14px" }}>
@@ -731,7 +731,7 @@ function LearningBehavior({ action, impact, direction }) {
     <div
       style={{
         background: "rgba(255,255,255,0.5)",
-        borderRadius: "8px",
+        borderRadius: "14px",
         padding: "10px 12px",
         display: "flex",
         alignItems: "center",

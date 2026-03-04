@@ -28,6 +28,7 @@ export interface MLContext {
   hour?: number
   dayOfWeek?: number
   weather?: string
+  travelMode?: string
   travelMinutesMap?: Record<string, number>
   userId?: string
 }
@@ -320,7 +321,7 @@ export async function getMLScores(
       hour: mlContext?.hour ?? new Date().getHours(),
       dayOfWeek: mlContext?.dayOfWeek ?? new Date().getDay(),
       weather: mlContext?.weather ?? 'clear',
-      travelMode: 'walking',
+      travelMode: mlContext?.travelMode ?? 'walking',
       travelMinutesMap: mlContext?.travelMinutesMap ?? {},
     }
 

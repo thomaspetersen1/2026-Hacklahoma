@@ -1,18 +1,18 @@
 import { useState, useEffect } from "react";
 import { C } from "../../assets/colors";
 
-export default function PillToggle({ label, selected, onClick, icon }) {
+export default function PillToggle({ label, selected, onClick, icon, small }) {
   return (
     <button
       onClick={onClick}
       style={{
-        padding: "10px 22px",
+        padding: small ? "6px 14px" : "10px 22px",
         borderRadius: "999px",
         border: selected ? `2px solid ${C.black}` : `2px solid #c8c8c8`,
         background: selected ? C.yellow : C.white,
         color: C.black,
         fontFamily: "'DM Sans', sans-serif",
-        fontSize: "15px",
+        fontSize: small ? "13px" : "15px",
         fontWeight: selected ? 600 : 400,
         cursor: "pointer",
         transition: "all 0.25s cubic-bezier(.4,0,.2,1)",
@@ -25,7 +25,7 @@ export default function PillToggle({ label, selected, onClick, icon }) {
         gap: "8px",
       }}
     >
-      {icon && <span style={{ fontSize: "18px" }}>{icon}</span>}
+      {icon && <span style={{ fontSize: small ? "14px" : "18px" }}>{icon}</span>}
       {label}
     </button>
   );

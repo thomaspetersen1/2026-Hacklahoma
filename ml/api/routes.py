@@ -6,10 +6,16 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from models.RFC import LightGBMRecommender
 from models.thompson import ContextualThompsonSampling
-from models.vibe_profiler import build_vibe_profile, get_vibe_vector
+from models.vibe_profiler import build_vibe_profile, get_vibe_vector, PLACE_TYPE_DEFAULTS, DEFAULT_VIBE
 from models.user_profile import get_profile, update_profile, get_all_profiles
 
 router = APIRouter()
+
+# Category → representative place type for vibe seed lookup
+_CAT_TO_PLACE_TYPE = {
+    'food': 'restaurant', 'outdoor': 'park',
+    'entertainment': 'bowling_alley', 'culture': 'museum',
+}
 
 # Load model on startup
 recommender = LightGBMRecommender()
@@ -57,13 +63,23 @@ async def recommend(data: dict):
             'travel_mode': raw_context.get('travelMode', 'walking'),
         }
 
-        # Per-activity travel minutes (for distance decay)
+        # Per-activity travel minutes (for distance decay) + vibe profile injection
         travel_map = raw_context.get('travelMinutesMap', {})
         for act in activities:
             if act.get('id') and act['id'] in travel_map:
                 act['travelMinutes'] = travel_map[act['id']]
             if 'isOpen' not in act:
                 act['isOpen'] = True
+            # Inject vibe features from place-type defaults if not already present
+            if 'vibe_chill' not in act:
+                place_type = _CAT_TO_PLACE_TYPE.get(act.get('category', ''), 'restaurant')
+                vibe = PLACE_TYPE_DEFAULTS.get(place_type, DEFAULT_VIBE)
+                act['vibe_chill']          = vibe['chill']
+                act['vibe_social']         = vibe['social']
+                act['vibe_studious']       = vibe['studious']
+                act['vibe_trendy']         = vibe['trendy']
+                act['vibe_date_spot']      = vibe['date_spot']
+                act['vibe_budget_friendly'] = vibe['budget_friendly']
 
         # Load user profile for personalized scoring
         user_id = data.get('userId', None)

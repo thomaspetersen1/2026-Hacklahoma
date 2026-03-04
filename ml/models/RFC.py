@@ -56,6 +56,14 @@ class LightGBMRecommender:
             'user_culture_affinity',
             'user_price_match',         # user price pref vs place price
             'user_category_affinity',   # cross: user's affinity for THIS place's category
+
+            # --- Vibe profile (atmosphere) ---
+            'vibe_chill',           # quiet, relaxed atmosphere
+            'vibe_social',          # lively, group-friendly
+            'vibe_studious',        # wifi, outlets, focus-friendly
+            'vibe_trendy',          # aesthetic, instagram-worthy
+            'vibe_date_spot',       # romantic, intimate ambiance
+            'vibe_budget_friendly', # affordable, student-friendly
         ]
 
     # =============================================================
@@ -90,7 +98,7 @@ class LightGBMRecommender:
           driving:  lambda=0.15 (5km=0.47, 10km=0.22)
           transit:  lambda=0.25 (3km=0.47, 5km=0.29)
         """
-        lambdas = {'walking': 0.8, 'driving': 0.15, 'transit': 0.25}
+        lambdas = {'walking': 0.8, 'bicycle': 0.35, 'driving': 0.15, 'transit': 0.25}
         lam = lambdas.get(travel_mode, 0.5)
         return math.exp(-lam * distance_km)
 
@@ -292,6 +300,14 @@ class LightGBMRecommender:
         }
         user_cat_affinity = affinity_map.get(category, 0.5)
 
+        # --- Vibe profile features (6D atmosphere vector) ---
+        vibe_chill     = activity.get('vibe_chill', 0.5)
+        vibe_social    = activity.get('vibe_social', 0.5)
+        vibe_studious  = activity.get('vibe_studious', 0.3)
+        vibe_trendy    = activity.get('vibe_trendy', 0.3)
+        vibe_date_spot = activity.get('vibe_date_spot', 0.3)
+        vibe_budget    = activity.get('vibe_budget_friendly', 0.5)
+
         return np.array([
             composite_quality,
             price_match,
@@ -314,6 +330,13 @@ class LightGBMRecommender:
             user_culture,
             user_price_match,
             user_cat_affinity,
+            # Vibe profile features
+            vibe_chill,
+            vibe_social,
+            vibe_studious,
+            vibe_trendy,
+            vibe_date_spot,
+            vibe_budget,
         ])
 
     # =============================================================

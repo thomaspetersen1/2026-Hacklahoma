@@ -513,10 +513,11 @@ function HowItWorks() {
     <section
       id="how-it-works"
       style={{
-        padding: "120px 40px",
+        padding: "72px 40px",
         background: C.cream,
         position: "relative",
         overflow: "hidden",
+        borderRadius: "40px",
       }}
     >
       <div
@@ -550,8 +551,8 @@ function HowItWorks() {
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: "32px",
-            marginTop: "64px",
+            gap: "24px",
+            marginTop: "40px",
           }}
         >
           {steps.map((step, i) => (
@@ -908,10 +909,11 @@ function About() {
     <section
       id="about"
       style={{
-        padding: "120px 40px",
+        padding: "72px 40px",
         background: C.cream,
         position: "relative",
         overflow: "hidden",
+        borderRadius: "40px",
       }}
     >
       <div
@@ -932,7 +934,7 @@ function About() {
           }}
         >
           <span
-            style={{ fontSize: "48px", display: "block", marginBottom: "24px" }}
+            style={{ fontSize: "48px", display: "block", marginBottom: "16px" }}
           >
             ⚔️
           </span>
@@ -942,7 +944,7 @@ function About() {
               fontSize: "clamp(28px, 4vw, 44px)",
               fontWeight: 700,
               color: C.black,
-              margin: "0 0 24px",
+              margin: "0 0 16px",
               lineHeight: 1.2,
               letterSpacing: "-0.5px",
             }}
@@ -957,7 +959,7 @@ function About() {
               fontSize: "18px",
               color: C.grey,
               lineHeight: 1.75,
-              margin: "0 0 20px",
+              margin: "0 0 12px",
             }}
           >
             Sidequest was born from a simple frustration — you finally have free
@@ -971,7 +973,7 @@ function About() {
               fontSize: "18px",
               color: C.grey,
               lineHeight: 1.75,
-              margin: "0 0 32px",
+              margin: "0 0 20px",
             }}
           >
             Our engine combines your personal interests with real-time data —

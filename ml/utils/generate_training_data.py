@@ -1,5 +1,17 @@
 import random
 import math
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+from models.vibe_profiler import PLACE_TYPE_DEFAULTS, DEFAULT_VIBE
+
+# Map ML categories → representative place types for vibe seeding
+CATEGORY_TO_PLACE_TYPE = {
+    'food': 'restaurant',
+    'outdoor': 'park',
+    'entertainment': 'bowling_alley',
+    'culture': 'museum',
+}
 
 
 def generate_synthetic_data(n_samples=2000):
@@ -33,12 +45,20 @@ def generate_synthetic_data(n_samples=2000):
         category = random.choice(categories)
         rating = random.uniform(2.5, 5.0)
         review_count = random.randint(5, 2000)
+        place_type = CATEGORY_TO_PLACE_TYPE.get(category, 'restaurant')
+        vibe = PLACE_TYPE_DEFAULTS.get(place_type, DEFAULT_VIBE)
         activity = {
             'category': category,
             'rating': round(rating, 1),
             'userRatingsTotal': review_count,
             'priceLevel': random.randint(0, 4),
             'typicalDuration': random.uniform(0.3, 3.0),  # hours
+            'vibe_chill': vibe['chill'],
+            'vibe_social': vibe['social'],
+            'vibe_studious': vibe['studious'],
+            'vibe_trendy': vibe['trendy'],
+            'vibe_date_spot': vibe['date_spot'],
+            'vibe_budget_friendly': vibe['budget_friendly'],
         }
 
         # --- Simulate context ---

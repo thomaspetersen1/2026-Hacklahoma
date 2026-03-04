@@ -30,6 +30,7 @@ const routeCache = new Map<string, { minutes: number; expires: number }>()
  */
 const TRAVEL_MODE_MAP: Record<TravelMode, string> = {
   walking: 'WALK',
+  bicycle: 'BICYCLE',
   driving: 'DRIVE',
   transit: 'TRANSIT',
 }

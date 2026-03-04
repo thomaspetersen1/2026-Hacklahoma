@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { C } from "../assets/colors";
 import Card from "./modules/Card";
+import { sendFeedback } from "../services/api";
 
 /* ─── Emoji mapping by place type ─── */
 const TYPE_EMOJI = {
@@ -97,13 +98,21 @@ function StarRating({ rating }) {
   );
 }
 
-export default function RecommendationCard({ item, index, onCardClick }) {
+export default function RecommendationCard({ item, index, onCardClick, userId }) {
   const [visible, setVisible] = useState(false);
+  const [feedbackGiven, setFeedbackGiven] = useState(null); // null | 'like' | 'dislike'
 
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), index * 100);
     return () => clearTimeout(t);
   }, [index]);
+
+  const handleFeedback = (e, action) => {
+    e.stopPropagation();
+    if (feedbackGiven) return;
+    setFeedbackGiven(action);
+    sendFeedback(item.id || item.placeId, action, userId);
+  };
 
   const emoji = getEmoji(item.types);
   const [color1, color2] = getGradient(item.types);
@@ -290,6 +299,41 @@ export default function RecommendationCard({ item, index, onCardClick }) {
             >
               {type.replace(/_/g, " ")}
             </span>
+          ))}
+        </div>
+
+        {/* Like / Dislike */}
+        <div
+          style={{
+            display: "flex",
+            gap: "8px",
+            marginTop: "12px",
+          }}
+        >
+          {[
+            { action: "like", label: "👍", active: "#22c55e" },
+            { action: "dislike", label: "👎", active: "#ef4444" },
+          ].map(({ action, label, active }) => (
+            <button
+              key={action}
+              onClick={(e) => handleFeedback(e, action)}
+              disabled={!!feedbackGiven}
+              style={{
+                flex: 1,
+                padding: "7px 0",
+                borderRadius: "999px",
+                border: `1.5px solid ${feedbackGiven === action ? active : "#e5e5e5"}`,
+                background: feedbackGiven === action ? `${active}18` : "transparent",
+                color: feedbackGiven === action ? active : C.greyLight,
+                fontSize: "14px",
+                cursor: feedbackGiven ? "default" : "pointer",
+                transition: "all 0.2s ease",
+                fontFamily: "'DM Sans', sans-serif",
+                fontWeight: 500,
+              }}
+            >
+              {label} {feedbackGiven === action ? (action === "like" ? "Liked" : "Noted") : action === "like" ? "Like" : "Not for me"}
+            </button>
           ))}
         </div>
 
