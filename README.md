@@ -4,7 +4,10 @@
 
 Sidequest is a spontaneous activity recommendation engine that turns "I'm bored" into a curated, time-fit list of nearby things to do — no endless scrolling, no decision fatigue. Tell it your vibe and how much time you have; it handles the rest.
 
-Built for [Hacklahoma 2026](https://hacklahoma.org/).
+Built for [Hacklahoma 2026](https://2026.hacklahoma.org/). \
+[Devpost](https://devpost.com/software/sidequest-7l1b3t?ref_content=my-projects-tab&ref_feature=my_projects)
+
+# HACKLAHOMA 2026 WINNER -- 2ND PLACE
 
 ---
 
@@ -24,9 +27,9 @@ Three independent services communicate over HTTP:
 
 ```
 ┌─────────────────┐     ┌──────────────────────┐     ┌─────────────────┐
-│   /web          │────▶│   /server            │────▶│   /ml           │
-│   React + Vite  │     │   Express/TypeScript  │     │   Python/Flask  │
-│   Port 3000     │     │   Port 3001           │     │   Port 8000     │
+│   /web          │────▶│  /server            │────▶│   /ml           │
+│   React + Vite  │     │   Express/TypeScript │     │   Python/Flask  │
+│   Port 5173     │     │   Port 3001          │     │   Port 8000     │
 └─────────────────┘     └──────────────────────┘     └─────────────────┘
                                    │
                     ┌──────────────┼──────────────┐
@@ -46,14 +49,15 @@ Sidequest uses a **multi-model recommendation pipeline** that blends supervised 
 
 Predicts P(user engages with this place | context) using **20 engineered features** across five groups:
 
-| Group | Features |
-|---|---|
-| Place Quality | Bayesian composite score, price match, trending bracket |
-| Context | Exponential distance decay (mode-specific λ), time-of-day matrix, duration efficiency, weather × outdoor interaction, day of week, open status |
-| Category | One-hot encoding (food / outdoor / entertainment / culture) |
-| User Affinities | Per-category affinity scores, price sensitivity cross-feature |
+| Group           | Features                                                                                                                                       |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Place Quality   | Bayesian composite score, price match, trending bracket                                                                                        |
+| Context         | Exponential distance decay (mode-specific λ), time-of-day matrix, duration efficiency, weather × outdoor interaction, day of week, open status |
+| Category        | One-hot encoding (food / outdoor / entertainment / culture)                                                                                    |
+| User Affinities | Per-category affinity scores, price sensitivity cross-feature                                                                                  |
 
 **Key design decisions:**
+
 - Composite quality uses a Bayesian average `(rating/5) × log(1+reviews) / log(1001)` — penalizes low-review-count places (IMDB Top 250 formula)
 - Distance decay uses mode-specific lambdas: walking λ=0.8, driving λ=0.15, transit λ=0.25
 - Shallow trees (`max_depth=3`, `num_leaves=7`) + column/row subsampling + L1/L2 regularization prevent overfitting on the 2,000-sample synthetic training set
@@ -64,6 +68,7 @@ Predicts P(user engages with this place | context) using **20 engineered feature
 An online contextual bandit layered on top of LightGBM for exploration-exploitation.
 
 Each `(place_id, context_bucket)` pair maintains a **Beta(α, β)** distribution as a conjugate prior over click probability. Inference samples `np.random.beta(α, β)`; updates are exact Bayesian:
+
 - Positive feedback (like / navigate): `α += 1`
 - Negative feedback (dismiss): `β += 1`
 
@@ -101,11 +106,11 @@ The slow learning rate ensures a single dismissal won't collapse a category pref
 
 Every suggestion fires an impression event. User actions map to rewards:
 
-| Action | Reward |
-|---|---|
-| navigate, like, save | 1 |
-| impression | 0 (weak signal) |
-| dismiss, dislike | 0 |
+| Action               | Reward          |
+| -------------------- | --------------- |
+| navigate, like, save | 1               |
+| impression           | 0 (weak signal) |
+| dismiss, dislike     | 0               |
 
 Each feedback event updates both the Thompson bandit and the EMA user profile — no batch retraining needed.
 
@@ -113,13 +118,13 @@ Each feedback event updates both the Thompson bandit and the EMA user profile �
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 19, Vite 7, Tailwind CSS 4 |
-| Backend | Express 5, TypeScript 5, Node.js |
-| ML Service | Python 3.11, Flask, LightGBM 4.6, scikit-learn 1.8, NumPy, pandas, joblib |
-| External APIs | Google Places API, Google Routes API, OpenWeather API |
-| Dev Infra | Docker Compose (hot reload for all 3 services) |
+| Layer         | Technology                                                                |
+| ------------- | ------------------------------------------------------------------------- |
+| Frontend      | React 19, Vite 7, Tailwind CSS 4                                          |
+| Backend       | Express 5, TypeScript 5, Node.js                                          |
+| ML Service    | Python 3.11, Flask, LightGBM 4.6, scikit-learn 1.8, NumPy, pandas, joblib |
+| External APIs | Google Places API, Google Routes API, OpenWeather API                     |
+| Dev Infra     | Docker Compose (hot reload for all 3 services)                            |
 
 ---
 
@@ -144,6 +149,7 @@ docker compose up
 ```
 
 Services will be available at:
+
 - Frontend: http://localhost:3000
 - API server: http://localhost:3001
 - ML service: http://localhost:8000
@@ -151,6 +157,7 @@ Services will be available at:
 ### Manual Setup
 
 **Frontend**
+
 ```bash
 cd web
 npm install
@@ -158,6 +165,7 @@ npm run dev
 ```
 
 **Server**
+
 ```bash
 cd server
 npm install
@@ -165,6 +173,7 @@ npm run dev
 ```
 
 **ML Service**
+
 ```bash
 cd ml
 pip install -r requirements.txt
@@ -175,6 +184,7 @@ python app.py               # start Flask server
 ### Environment Variables
 
 `server/.env`:
+
 ```
 GOOGLE_API_KEY=your_key_here
 OPENWEATHER_API_KEY=your_key_here
@@ -186,9 +196,11 @@ ML_SERVICE_URL=http://localhost:8000   # optional, defaults to this
 ## API Reference
 
 ### `POST /api/suggest`
+
 Returns ML-ranked place recommendations.
 
 **Body:**
+
 ```json
 {
   "hobbies": ["food", "outdoor"],
@@ -204,6 +216,7 @@ Returns ML-ranked place recommendations.
 **Response includes:** ranked places with `ml_score`, `lgbm_score`, `thompson_score`, travel times, vibe matches, reason codes, and metadata (`scoreSource`, `mlLatencyMs`, `mlUp`).
 
 ### `POST /api/feedback`
+
 Record user interaction to update bandit arms and user profile.
 
 ```json
@@ -215,6 +228,7 @@ Record user interaction to update bandit arms and user profile.
 ```
 
 ### `GET /api/health`
+
 Returns service status including ML model load state and bandit arm count.
 
 ---
@@ -248,10 +262,10 @@ Returns service status including ML model load state and bandit arm count.
 
 The app ships with 5 seeded user profiles for demo purposes:
 
-| ID | Name | Style | Location |
-|---|---|---|---|
-| `alex` | Alex | Chill coffee lover, walks everywhere | Norman, OK |
-| `jordan` | Jordan | Active outdoorsy explorer, drives | Norman, OK |
-| `sam` | Sam | Creative and cultured, museums/galleries | Norman, OK |
-| `maya` | Maya | Foodie trying new spots, drives | Oklahoma City, OK |
-| `chris` | Chris | Social butterfly, bars/live music | Dallas, TX |
+| ID       | Name   | Style                                    | Location          |
+| -------- | ------ | ---------------------------------------- | ----------------- |
+| `alex`   | Alex   | Chill coffee lover, walks everywhere     | Norman, OK        |
+| `jordan` | Jordan | Active outdoorsy explorer, drives        | Norman, OK        |
+| `sam`    | Sam    | Creative and cultured, museums/galleries | Norman, OK        |
+| `maya`   | Maya   | Foodie trying new spots, drives          | Oklahoma City, OK |
+| `chris`  | Chris  | Social butterfly, bars/live music        | Dallas, TX        |
